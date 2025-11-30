@@ -15,6 +15,7 @@ from ..models import (
     CollisionCheckResponse,
     ForceCalculationRequest,
     ForceCalculationResponse,
+    JointDefinition,
     KineticEnergyRequest,
     KineticEnergyResponse,
     MomentumRequest,
@@ -210,6 +211,14 @@ class RapierProvider(PhysicsProvider):
                 total_time = data["total_time"]
                 num_frames = data["num_frames"]
 
+            # Parse contact events if present (Phase 1.2)
+            from ..models import ContactEvent
+
+            contact_events = []
+            if "contact_events" in data:
+                for event_data in data["contact_events"]:
+                    contact_events.append(ContactEvent(**event_data))
+
             return TrajectoryResponse(
                 dt=trajectory_dt,
                 frames=data["frames"],
@@ -218,7 +227,28 @@ class RapierProvider(PhysicsProvider):
                     total_time=total_time,
                     num_frames=num_frames,
                 ),
+                contact_events=contact_events,
             )
+
+    async def add_joint(self, sim_id: str, joint: "JointDefinition") -> str:
+        """Add a joint/constraint between two bodies.
+
+        POST /simulations/{sim_id}/joints
+        Body: { "id": "...", "joint_type": "revolute", "body_a": "...", "body_b": "...", ... }
+        Response: { "joint_id": "..." }
+        """
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            # Serialize to JSON-compatible format
+            payload = joint.model_dump(exclude_none=True, mode="json")
+            logger.debug(f"Adding joint to {sim_id}: {payload}")
+
+            response = await client.post(
+                f"{self.service_url}/simulations/{sim_id}/joints",
+                json=payload,
+            )
+            response.raise_for_status()
+            data = response.json()
+            return data["joint_id"]
 
     async def destroy_simulation(self, sim_id: str) -> None:
         """Destroy a simulation.

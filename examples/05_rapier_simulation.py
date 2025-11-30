@@ -3,10 +3,11 @@
 This example demonstrates the Rapier simulation tools for rigid-body physics.
 
 REQUIREMENTS:
-    You must have the Rapier service running on http://localhost:9000
-    See RAPIER_SERVICE.md for implementation details.
+    This example uses the public Rapier service at https://rapier.chukai.io
 
-    If the service is not running, you'll get a connection error.
+    To use a local service instead:
+        export RAPIER_SERVICE_URL=http://localhost:9000
+
     The analytic examples (00-04) work without any external services.
 
 WHAT THIS DEMONSTRATES:
@@ -17,6 +18,12 @@ WHAT THIS DEMONSTRATES:
     - Collision detection through simulation
     - Gravity and realistic physics
 """
+
+# IMPORTANT: Set environment variable BEFORE any imports
+import os
+
+if "RAPIER_SERVICE_URL" not in os.environ:
+    os.environ["RAPIER_SERVICE_URL"] = "https://rapier.chukai.io"
 
 import asyncio
 from chuk_mcp_physics.providers.factory import get_provider
@@ -81,7 +88,9 @@ async def example_bouncing_ball():
             "ball",
             steps=180,
         )
-        print(f"   ✓ Recorded {trajectory.num_frames} frames over {trajectory.total_time:.2f}s")
+        print(
+            f"   ✓ Recorded {trajectory.meta.num_frames} frames over {trajectory.meta.total_time:.2f}s"
+        )
 
         # 5. Analyze bounces
         print("\n5️⃣  Bounce Analysis:")
@@ -112,8 +121,10 @@ async def example_bouncing_ball():
 
     except Exception as e:
         print(f"\n❌ Error: {e}")
-        print("\nMake sure the Rapier service is running on http://localhost:9000")
-        print("See RAPIER_SERVICE.md for setup instructions.")
+        service_url = os.environ.get("RAPIER_SERVICE_URL", "https://rapier.chukai.io")
+        print(f"\nCannot connect to Rapier service at {service_url}")
+        print("Using public service: https://rapier.chukai.io (default)")
+        print("For local service: export RAPIER_SERVICE_URL=http://localhost:9000")
 
 
 async def example_collision_simulation():
@@ -188,7 +199,10 @@ async def example_collision_simulation():
 
     except Exception as e:
         print(f"\n❌ Error: {e}")
-        print("\nMake sure the Rapier service is running on http://localhost:9000")
+        service_url = os.environ.get("RAPIER_SERVICE_URL", "https://rapier.chukai.io")
+        print(f"\nCannot connect to Rapier service at {service_url}")
+        print("Using public service: https://rapier.chukai.io (default)")
+        print("For local service: export RAPIER_SERVICE_URL=http://localhost:9000")
 
 
 async def example_stacking_boxes():
@@ -253,7 +267,10 @@ async def example_stacking_boxes():
 
     except Exception as e:
         print(f"\n❌ Error: {e}")
-        print("\nMake sure the Rapier service is running on http://localhost:9000")
+        service_url = os.environ.get("RAPIER_SERVICE_URL", "https://rapier.chukai.io")
+        print(f"\nCannot connect to Rapier service at {service_url}")
+        print("Using public service: https://rapier.chukai.io (default)")
+        print("For local service: export RAPIER_SERVICE_URL=http://localhost:9000")
 
 
 async def main():
@@ -261,8 +278,9 @@ async def main():
     print("=" * 70)
     print("RAPIER PHYSICS SIMULATION EXAMPLES")
     print("=" * 70)
-    print("\nThese examples require the Rapier service running on http://localhost:9000")
-    print("See RAPIER_SERVICE.md for implementation details.")
+    service_url = os.environ.get("RAPIER_SERVICE_URL", "https://rapier.chukai.io")
+    print(f"\nThese examples use the Rapier service at: {service_url}")
+    print("(Public service available, or set RAPIER_SERVICE_URL for local testing)")
     print("\nIf you want to run examples without external services,")
     print("use examples 00-04 which use the built-in analytic provider.")
 
@@ -278,9 +296,9 @@ async def main():
     except Exception as e:
         print(f"\n❌ Cannot connect to Rapier service: {e}")
         print("\nPossible solutions:")
-        print("  1. Start the Rapier service on http://localhost:9000")
+        print("  1. Check your internet connection (public service at https://rapier.chukai.io)")
         print("  2. Run analytic examples instead (00-04)")
-        print("  3. Build the Rapier service following RAPIER_SERVICE.md")
+        print("  3. Run local Rapier service: export RAPIER_SERVICE_URL=http://localhost:9000")
         return
 
     # Run examples

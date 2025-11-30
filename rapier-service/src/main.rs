@@ -39,6 +39,7 @@ async fn main() {
         .route("/simulations/:sim_id/state", get(get_simulation_state))
         .route("/simulations/:sim_id", delete(destroy_simulation))
         .route("/simulations/:sim_id/bodies", post(add_body))
+        .route("/simulations/:sim_id/joints", post(add_joint))
         .route("/simulations/:sim_id/step", post(step_simulation))
         .route("/simulations/:sim_id/bodies/:body_id/trajectory", post(record_trajectory))
         .layer(CorsLayer::permissive())
@@ -115,6 +116,10 @@ struct AddBodyRequest {
     normal: Option<[f32; 3]>, // For plane: normal vector
     #[serde(default)]
     offset: Option<f32>, // For plane: distance from origin
+    #[serde(default)]
+    linear_damping: Option<f32>, // Linear velocity damping (Phase 1.4)
+    #[serde(default)]
+    angular_damping: Option<f32>, // Angular velocity damping (Phase 1.4)
 }
 
 fn default_friction() -> f32 {
@@ -167,6 +172,8 @@ struct TrajectoryResponse {
     frames: Vec<TrajectoryFrame>,
     total_time: f32,
     num_frames: usize,
+    #[serde(default)]
+    contact_events: Vec<physics::ContactEventData>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -175,6 +182,31 @@ struct TrajectoryFrame {
     position: [f32; 3],
     orientation: [f32; 4],
     velocity: [f32; 3],
+}
+
+#[derive(Debug, Deserialize)]
+struct AddJointRequest {
+    id: String,
+    joint_type: String,
+    body_a: String,
+    body_b: String,
+    #[serde(default = "default_anchor")]
+    anchor_a: [f32; 3],
+    #[serde(default = "default_anchor")]
+    anchor_b: [f32; 3],
+    #[serde(default)]
+    axis: Option<[f32; 3]>,
+    #[serde(default)]
+    limits: Option<[f32; 2]>,
+}
+
+fn default_anchor() -> [f32; 3] {
+    [0.0, 0.0, 0.0]
+}
+
+#[derive(Debug, Serialize)]
+struct AddJointResponse {
+    joint_id: String,
 }
 
 // Handlers
@@ -233,11 +265,43 @@ async fn add_body(
         req.restitution,
         req.normal,
         req.offset,
+        req.linear_damping,
+        req.angular_damping,
     );
 
     info!("Added body {} to simulation {}", req.id, sim_id);
 
     Ok(Json(AddBodyResponse { body_id: req.id }))
+}
+
+async fn add_joint(
+    State(state): State<AppState>,
+    Path(sim_id): Path<String>,
+    Json(req): Json<AddJointRequest>,
+) -> Result<Json<AddJointResponse>, StatusCode> {
+    let mut sims = state.write().await;
+    let sim = sims.get_mut(&sim_id).ok_or(StatusCode::NOT_FOUND)?;
+
+    let joint_def = physics::JointDefinition {
+        id: req.id.clone(),
+        joint_type: req.joint_type,
+        body_a: req.body_a,
+        body_b: req.body_b,
+        anchor_a: req.anchor_a,
+        anchor_b: req.anchor_b,
+        axis: req.axis,
+        limits: req.limits,
+    };
+
+    sim.add_joint(joint_def)
+        .map_err(|e| {
+            warn!("Failed to add joint: {}", e);
+            StatusCode::BAD_REQUEST
+        })?;
+
+    info!("Added joint {} to simulation {}", req.id, sim_id);
+
+    Ok(Json(AddJointResponse { joint_id: req.id }))
 }
 
 async fn step_simulation(
@@ -272,6 +336,7 @@ async fn record_trajectory(
     let sim = sims.get_mut(&sim_id).ok_or(StatusCode::NOT_FOUND)?;
 
     let mut frames = Vec::new();
+    let mut all_contact_events = Vec::new();
     let start_time = sim.time;
 
     for _ in 0..req.steps {
@@ -285,7 +350,12 @@ async fn record_trajectory(
             });
         }
 
+        // Step simulation (also detects contact events)
         sim.step(1, req.dt);
+
+        // Collect contact events that occurred during this step
+        let events = sim.get_and_clear_contact_events();
+        all_contact_events.extend(events);
     }
 
     let total_time = sim.time - start_time;
@@ -295,6 +365,7 @@ async fn record_trajectory(
         frames: frames.clone(),
         total_time,
         num_frames: frames.len(),
+        contact_events: all_contact_events,
     }))
 }
 

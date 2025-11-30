@@ -12,6 +12,7 @@ from ..models import (
     CollisionCheckResponse,
     ForceCalculationRequest,
     ForceCalculationResponse,
+    JointDefinition,
     KineticEnergyRequest,
     KineticEnergyResponse,
     MomentumRequest,
@@ -262,6 +263,12 @@ class AnalyticProvider(PhysicsProvider):
         """Not supported by analytic provider."""
         raise NotImplementedError(
             "Analytic provider does not support simulations. Use Rapier provider instead."
+        )
+
+    async def add_joint(self, sim_id: str, joint: JointDefinition) -> str:
+        """Not supported by analytic provider."""
+        raise NotImplementedError(
+            "Analytic provider does not support joints. Use Rapier provider instead."
         )
 
     async def destroy_simulation(self, sim_id: str) -> None:

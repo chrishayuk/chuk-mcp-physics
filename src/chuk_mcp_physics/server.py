@@ -28,6 +28,7 @@ from .models import (
     CollisionCheckResponse,
     ForceCalculationRequest,
     ForceCalculationResponse,
+    JointDefinition,
     KineticEnergyRequest,
     KineticEnergyResponse,
     MomentumRequest,
@@ -39,8 +40,10 @@ from .models import (
     SimulationCreateResponse,
     SimulationStepResponse,
     TrajectoryResponse,
+    TrajectoryWithEventsResponse,
 )
 from .providers.factory import get_provider_for_tool
+from .analysis import analyze_trajectory_with_events
 
 # Configure logging
 # In STDIO mode, we need to be quiet to avoid polluting the JSON-RPC stream
@@ -443,6 +446,8 @@ async def add_rigid_body(
     restitution: float = 0.5,
     friction: float = 0.5,
     is_sensor: bool = False,
+    linear_damping: float = 0.0,
+    angular_damping: float = 0.0,
 ) -> str:
     """Add a rigid body to an existing simulation.
 
@@ -473,6 +478,8 @@ async def add_rigid_body(
         restitution: Bounciness (0.0 = no bounce, 1.0 = perfect bounce). Default 0.5
         friction: Surface friction (0.0 = ice, 1.0 = rubber). Default 0.5
         is_sensor: If true, detects collisions but doesn't respond physically. Default false
+        linear_damping: Linear velocity damping (0.0-1.0) - like air resistance. Default 0.0
+        angular_damping: Angular velocity damping (0.0-1.0) - like rotational friction. Default 0.0
 
     Returns:
         body_id (echo of the input ID)
@@ -541,9 +548,72 @@ async def add_rigid_body(
         restitution=restitution,
         friction=friction,
         is_sensor=is_sensor,
+        linear_damping=linear_damping,
+        angular_damping=angular_damping,
     )
     provider = get_provider_for_tool("add_body")
     return await provider.add_body(sim_id, body)
+
+
+@tool  # type: ignore[arg-type]
+async def add_joint(
+    sim_id: str,
+    joint: JointDefinition,
+) -> str:
+    """Add a joint/constraint to connect two rigid bodies.
+
+    Joints allow you to constrain the motion between bodies:
+    - FIXED: Rigid connection (glue objects together)
+    - REVOLUTE: Hinge rotation around an axis (doors, pendulums)
+    - SPHERICAL: Ball-and-socket rotation (ragdolls, gimbals)
+    - PRISMATIC: Sliding along an axis (pistons, elevators)
+
+    Args:
+        sim_id: Simulation identifier
+        joint: Joint definition with type and parameters
+
+    Returns:
+        joint_id: Unique identifier for the created joint
+
+    Example - Simple Pendulum:
+        # Create fixed anchor point
+        add_rigid_body(
+            sim_id=sim_id,
+            body_id="anchor",
+            body_type="static",
+            shape="sphere",
+            size=[0.05],
+            position=[0.0, 5.0, 0.0],
+        )
+
+        # Create pendulum bob
+        add_rigid_body(
+            sim_id=sim_id,
+            body_id="bob",
+            body_type="dynamic",
+            shape="sphere",
+            size=[0.1],
+            mass=1.0,
+            position=[0.0, 3.0, 0.0],
+        )
+
+        # Connect with revolute joint (hinge)
+        add_joint(
+            sim_id=sim_id,
+            joint=JointDefinition(
+                id="pendulum_joint",
+                joint_type="revolute",
+                body_a="anchor",
+                body_b="bob",
+                anchor_a=[0.0, 0.0, 0.0],  # Center of anchor
+                anchor_b=[0.0, 0.1, 0.0],   # Top of bob
+                axis=[0.0, 0.0, 1.0],        # Rotate around Z-axis
+            ),
+        )
+    """
+    provider = get_provider_for_tool("add_joint")
+    joint_id = await provider.add_joint(sim_id, joint)
+    return joint_id
 
 
 @tool  # type: ignore[arg-type]
@@ -664,6 +734,87 @@ async def record_trajectory(
 
     provider = get_provider_for_tool("record_trajectory")
     return await provider.record_trajectory(sim_id, body_id, steps, dt)
+
+
+@tool  # type: ignore[arg-type]
+async def record_trajectory_with_events(
+    sim_id: str,
+    body_id: str,
+    steps: int,
+    dt: Optional[float] = None,
+    detect_bounces: bool = True,
+    bounce_height_threshold: float = 0.01,
+) -> TrajectoryWithEventsResponse:
+    """Record trajectory and automatically detect collision and bounce events.
+
+    This is an enhanced version of record_trajectory that analyzes the motion
+    and detects important events like bounces and collisions. Perfect for
+    answering questions like "how many times did the ball bounce?"
+
+    Args:
+        sim_id: Simulation ID
+        body_id: Body to track
+        steps: Number of simulation steps to record
+        dt: Optional custom timestep (overrides simulation default)
+        detect_bounces: Whether to detect bounce events (default True)
+        bounce_height_threshold: Maximum height to consider as "on ground" in meters (default 0.01)
+
+    Returns:
+        TrajectoryWithEventsResponse containing:
+            - frames: Trajectory frames (positions, velocities)
+            - bounces: Detected bounce events with energy loss
+            - contact_events: Contact/collision events (future)
+
+    Tips for LLMs:
+        - Use this instead of record_trajectory when you need event detection
+        - Bounces are detected from velocity reversals near the ground
+        - Each bounce includes: time, position, speeds before/after, energy loss
+        - Use `trajectory.bounces` to count or analyze bounces
+        - Adjust bounce_height_threshold for different ground shapes
+
+    Example:
+        # Record ball bouncing and count bounces
+        traj = await record_trajectory_with_events(
+            sim_id=sim_id,
+            body_id="ball",
+            steps=600,
+            detect_bounces=True,
+            bounce_height_threshold=0.01  # 1cm threshold
+        )
+        print(f"Detected {len(traj.bounces)} bounces")
+        for bounce in traj.bounces:
+            print(f"Bounce #{bounce.bounce_number} at t={bounce.time:.2f}s")
+    """
+    # Validate steps/frames
+    if steps > SimulationLimits.MAX_TRAJECTORY_FRAMES:
+        raise ValueError(
+            f"Requested {steps} frames exceeds maximum of {SimulationLimits.MAX_TRAJECTORY_FRAMES}. "
+            f"Reduce frame count to avoid excessive memory usage."
+        )
+    if steps < 1:
+        raise ValueError("steps must be at least 1")
+
+    # Validate dt if provided
+    if dt is not None:
+        if dt < SimulationLimits.MIN_DT:
+            raise ValueError(f"dt={dt} is too small. Minimum is {SimulationLimits.MIN_DT}s")
+        if dt > SimulationLimits.MAX_DT:
+            raise ValueError(f"dt={dt} is too large. Maximum is {SimulationLimits.MAX_DT}s")
+
+    # Get regular trajectory
+    provider = get_provider_for_tool("record_trajectory")
+    trajectory = await provider.record_trajectory(sim_id, body_id, steps, dt)
+
+    # Analyze and detect events
+    return analyze_trajectory_with_events(
+        frames=trajectory.frames,
+        dt=trajectory.dt,
+        body_id=trajectory.meta.body_id,
+        total_time=trajectory.meta.total_time,
+        detect_bounces_enabled=detect_bounces,
+        bounce_height_threshold=bounce_height_threshold,
+        contact_events=None,  # Future: get from Rapier service
+    )
 
 
 @tool  # type: ignore[arg-type]

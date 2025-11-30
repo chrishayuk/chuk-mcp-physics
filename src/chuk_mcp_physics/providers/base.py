@@ -10,6 +10,7 @@ from ..models import (
     CollisionCheckResponse,
     ForceCalculationRequest,
     ForceCalculationResponse,
+    JointDefinition,
     KineticEnergyRequest,
     KineticEnergyResponse,
     MomentumRequest,
@@ -189,6 +190,23 @@ class PhysicsProvider(ABC):
         Raises:
             NotImplementedError: If provider doesn't support simulations
             ValueError: If simulation or body doesn't exist
+        """
+        pass  # pragma: no cover
+
+    @abstractmethod
+    async def add_joint(self, sim_id: str, joint: JointDefinition) -> str:
+        """Add a joint/constraint between two bodies.
+
+        Args:
+            sim_id: Simulation identifier
+            joint: Joint definition
+
+        Returns:
+            Joint ID (same as joint.id)
+
+        Raises:
+            NotImplementedError: If provider doesn't support joints
+            ValueError: If simulation or bodies don't exist
         """
         pass  # pragma: no cover
 

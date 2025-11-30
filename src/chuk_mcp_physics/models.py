@@ -42,6 +42,15 @@ class IntegratorType(str, Enum):
     RK4 = "rk4"
 
 
+class JointType(str, Enum):
+    """Joint type enumeration."""
+
+    FIXED = "fixed"
+    REVOLUTE = "revolute"  # Hinge
+    SPHERICAL = "spherical"  # Ball-and-socket
+    PRISMATIC = "prismatic"  # Slider
+
+
 # ============================================================================
 # Vector Types
 # ============================================================================
@@ -94,6 +103,40 @@ class Quaternion(BaseModel):
 
 
 # ============================================================================
+# Collision & Contact Models
+# ============================================================================
+
+
+class ContactEvent(BaseModel):
+    """Single contact event between two bodies."""
+
+    time: float = Field(..., description="Simulation time when contact occurred")
+    body_a: str = Field(..., description="First body ID")
+    body_b: str = Field(..., description="Second body ID")
+    contact_point: list[float] = Field(..., description="World space position [x, y, z]")
+    normal: list[float] = Field(..., description="Contact normal (from A to B)")
+    impulse_magnitude: float = Field(..., description="Collision impulse magnitude")
+    relative_velocity: list[float] = Field(
+        ..., description="Relative velocity at contact [x, y, z]"
+    )
+    event_type: str = Field(..., description="Event type: 'started', 'ongoing', or 'ended'")
+
+
+class BounceEvent(BaseModel):
+    """Detected bounce event (local minimum in height)."""
+
+    time: float = Field(..., description="Time of bounce")
+    bounce_number: int = Field(..., description="Bounce sequence number (1-indexed)")
+    position: list[float] = Field(..., description="Position at bounce [x, y, z]")
+    velocity_before: list[float] = Field(..., description="Velocity just before bounce [x, y, z]")
+    velocity_after: list[float] = Field(..., description="Velocity just after bounce [x, y, z]")
+    height_at_bounce: float = Field(..., description="Height (y-coordinate) at bounce")
+    speed_before: float = Field(..., description="Speed magnitude before bounce")
+    speed_after: float = Field(..., description="Speed magnitude after bounce")
+    energy_loss_percent: float = Field(..., description="Percentage of kinetic energy lost")
+
+
+# ============================================================================
 # Rigid Body Models
 # ============================================================================
 
@@ -134,6 +177,52 @@ class RigidBodyDefinition(BaseModel):
     # Sensor flag
     is_sensor: bool = Field(
         default=False, description="If true, body detects collisions but doesn't respond to them"
+    )
+
+    # Damping (Phase 1.4)
+    linear_damping: float = Field(
+        default=0.0,
+        description="Linear velocity damping (0.0-1.0) - like air resistance",
+        ge=0.0,
+        le=1.0,
+    )
+    angular_damping: float = Field(
+        default=0.0,
+        description="Angular velocity damping (0.0-1.0) - like rotational friction",
+        ge=0.0,
+        le=1.0,
+    )
+
+
+class JointDefinition(BaseModel):
+    """Definition for creating a joint between two bodies."""
+
+    id: str = Field(..., description="Unique identifier for this joint")
+    joint_type: JointType = Field(..., description="Type of joint")
+
+    # Bodies to connect
+    body_a: str = Field(..., description="First body ID")
+    body_b: str = Field(..., description="Second body ID")
+
+    # Attachment points (local coordinates)
+    anchor_a: list[float] = Field(
+        default=[0.0, 0.0, 0.0],
+        description="Attachment point on body A (local) [x, y, z]",
+    )
+    anchor_b: list[float] = Field(
+        default=[0.0, 0.0, 0.0],
+        description="Attachment point on body B (local) [x, y, z]",
+    )
+
+    # Axis (for revolute and prismatic)
+    axis: Optional[list[float]] = Field(
+        None, description="Joint axis (local to each body) [x, y, z]"
+    )
+
+    # Limits (for revolute and prismatic)
+    limits: Optional[list[float]] = Field(
+        None,
+        description="Joint limits: [min, max] (radians for revolute, meters for prismatic)",
     )
 
 
@@ -226,6 +315,21 @@ class TrajectoryResponse(BaseModel):
     dt: float = Field(..., description="Time step between frames in seconds")
     frames: list[TrajectoryFrame] = Field(..., description="Trajectory frames")
     meta: TrajectoryMeta = Field(..., description="Trajectory metadata")
+    contact_events: list[ContactEvent] = Field(
+        default_factory=list, description="Contact events from physics engine (Phase 1.2)"
+    )
+
+
+class TrajectoryWithEventsResponse(BaseModel):
+    """Recorded trajectory with detected collision and bounce events."""
+
+    dt: float = Field(..., description="Time step between frames in seconds")
+    frames: list[TrajectoryFrame] = Field(..., description="Trajectory frames")
+    meta: TrajectoryMeta = Field(..., description="Trajectory metadata")
+    contact_events: list[ContactEvent] = Field(
+        default_factory=list, description="Detected contact/collision events"
+    )
+    bounces: list[BounceEvent] = Field(default_factory=list, description="Detected bounce events")
 
 
 # ============================================================================
