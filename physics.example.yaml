@@ -1,0 +1,34 @@
+# Example configuration for chuk-mcp-physics
+# Copy to physics.yaml and customize
+
+# Default provider for all operations
+# Options: "analytic" or "rapier"
+default_provider: analytic
+
+# Per-tool provider overrides
+providers:
+  # Analytic calculations always use analytic provider
+  projectile_motion: analytic
+  collision_check: analytic
+  force_calculation: analytic
+  kinetic_energy: analytic
+  momentum: analytic
+
+  # Simulations can use either provider
+  simulations: rapier
+
+# Rapier service configuration
+rapier:
+  # Local development
+  service_url: http://localhost:9000
+
+  # Production (after deploying to Fly.io)
+  # service_url: https://chuk-rapier-physics.fly.dev
+
+  timeout: 30.0
+  max_retries: 3
+  retry_delay: 1.0
+
+# Alternative: Use environment variables
+# PHYSICS_PROVIDER=rapier
+# RAPIER_SERVICE_URL=https://chuk-rapier-physics.fly.dev

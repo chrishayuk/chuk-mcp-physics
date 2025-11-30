@@ -1,0 +1,30 @@
+# fly.toml app configuration file for chuk-mcp-physics
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'chuk-mcp-physics'
+primary_region = 'lhr'
+
+[build]
+
+[env]
+  # Provider configuration
+  PHYSICS_PROVIDER = "analytic"
+
+  # Rapier service configuration (when using Rapier provider)
+  # RAPIER_SERVICE_URL = "http://localhost:9000"
+  # PHYSICS_PROVIDER = "rapier"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ['app']
+
+[[vm]]
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 1
