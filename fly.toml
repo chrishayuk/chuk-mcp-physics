@@ -13,7 +13,8 @@ primary_region = 'lhr'
   PHYSICS_PROVIDER = "rapier"
 
   # Rapier service configuration (when using Rapier provider)
-  RAPIER_SERVICE_URL = "https://chuk-rapier-physics.fly.dev"
+  # Uses custom domain instead of fly.dev URL
+  RAPIER_SERVICE_URL = "https://rapier.chukai.io"
 
 [http_service]
   internal_port = 8000

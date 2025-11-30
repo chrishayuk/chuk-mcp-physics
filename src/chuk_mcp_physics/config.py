@@ -124,9 +124,15 @@ class RapierConfig:
     _rapier_yaml = _yaml_config.get("rapier", {})
 
     # Rapier service URL
+    # Default depends on environment:
+    # - Fly.io deployment: use public service
+    # - Local development: use localhost
+    _default_service_url = (
+        "https://rapier.chukai.io" if os.getenv("FLY_APP_NAME") else "http://localhost:9000"
+    )
     SERVICE_URL = os.getenv(
         "RAPIER_SERVICE_URL",
-        _rapier_yaml.get("service_url", "http://localhost:9000"),
+        _rapier_yaml.get("service_url", _default_service_url),
     )
 
     # Request timeout in seconds

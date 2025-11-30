@@ -404,6 +404,8 @@ async def add_rigid_body(
     size: Optional[list[float]] = None,
     radius: Optional[float] = None,
     half_height: Optional[float] = None,
+    normal: Optional[list[float]] = None,
+    offset: Optional[float] = None,
     position: Optional[list[float]] = None,
     orientation: Optional[list[float]] = None,
     velocity: Optional[list[float]] = None,
@@ -429,6 +431,8 @@ async def add_rigid_body(
         size: For box: [width, height, depth]. For other shapes, use radius/half_height
         radius: Radius for sphere/capsule/cylinder
         half_height: Half-height for capsule/cylinder
+        normal: Normal vector [x, y, z] for plane shape. Default [0, 1, 0] (upward)
+        offset: Offset along normal for plane. Default 0.0
         position: Initial position [x, y, z]. Default [0, 0, 0]
         orientation: Initial orientation quaternion [x, y, z, w]. Default [0, 0, 0, 1] (identity)
         velocity: Initial linear velocity [x, y, z]. Default [0, 0, 0]
@@ -475,6 +479,8 @@ async def add_rigid_body(
         size=size,
         radius=radius,
         half_height=half_height,
+        normal=normal,
+        offset=offset,
         position=position or [0.0, 0.0, 0.0],
         orientation=orientation or [0.0, 0.0, 0.0, 1.0],
         velocity=velocity or [0.0, 0.0, 0.0],

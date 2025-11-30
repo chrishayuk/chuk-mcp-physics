@@ -111,6 +111,10 @@ class RigidBodyDefinition(BaseModel):
     )
     radius: Optional[float] = Field(None, description="Radius for sphere/capsule/cylinder")
     half_height: Optional[float] = Field(None, description="Half-height for capsule/cylinder")
+    normal: Optional[list[float]] = Field(
+        None, description="Normal vector [x, y, z] for plane (default [0, 1, 0])"
+    )
+    offset: Optional[float] = Field(None, description="Offset along normal for plane (default 0.0)")
 
     # Physics properties
     mass: float = Field(default=1.0, description="Mass in kilograms", gt=0.0)

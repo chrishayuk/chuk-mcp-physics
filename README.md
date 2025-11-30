@@ -892,11 +892,12 @@ python examples/05_rapier_simulation.py
 PHYSICS_PROVIDER=analytic          # or "rapier"
 
 # Rapier service (only if using Rapier provider)
-# Option 1: Public service (recommended for getting started)
-RAPIER_SERVICE_URL=https://rapier.chukai.io
-
-# Option 2: Local development
-# RAPIER_SERVICE_URL=http://localhost:9000
+# The default is automatically determined:
+# - On Fly.io: uses https://rapier.chukai.io (public service)
+# - Locally: uses http://localhost:9000
+#
+# Override with:
+RAPIER_SERVICE_URL=https://rapier.chukai.io  # or http://localhost:9000
 
 # Optional configuration
 RAPIER_TIMEOUT=30.0
