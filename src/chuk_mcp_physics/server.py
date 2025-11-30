@@ -428,9 +428,14 @@ async def add_rigid_body(
             - kinematic: Moves but not affected by forces (scripted motion)
         shape: Collider shape: "box", "sphere", "capsule", "cylinder", "plane"
         mass: Mass in kilograms (for dynamic bodies). Default 1.0
-        size: For box: [width, height, depth]. For other shapes, use radius/half_height
-        radius: Radius for sphere/capsule/cylinder
-        half_height: Half-height for capsule/cylinder
+        size: Shape dimensions (REQUIRED for box and sphere):
+            - box: [width, height, depth]
+            - sphere: [radius]
+            - capsule: [half_height, radius]
+            - cylinder: [half_height, radius]
+            - plane: not used (use normal/offset instead)
+        radius: DEPRECATED - use size parameter instead
+        half_height: DEPRECATED - use size parameter instead
         normal: Normal vector [x, y, z] for plane shape. Default [0, 1, 0] (upward)
         offset: Offset along normal for plane. Default 0.0
         position: Initial position [x, y, z]. Default [0, 0, 0]
@@ -445,8 +450,10 @@ async def add_rigid_body(
         body_id (echo of the input ID)
 
     Tips for LLMs:
+        - IMPORTANT: Always use 'size' parameter for shapes (not 'radius' or 'half_height')
         - Create ground first: body_type="static", shape="plane"
         - Box size is full width/height/depth (not half-extents)
+        - Sphere size is [radius] (array with one element)
         - Quaternions: identity = [0, 0, 0, 1] (no rotation)
         - Common restitution: steel=0.8, wood=0.5, clay=0.1
         - Common friction: ice=0.05, wood=0.4, rubber=1.0
@@ -457,7 +464,20 @@ async def add_rigid_body(
             sim_id=sim_id,
             body_id="ground",
             body_type="static",
-            shape="plane"
+            shape="plane",
+            normal=[0, 1, 0]
+        )
+
+        # Add a bouncing ball
+        await add_rigid_body(
+            sim_id=sim_id,
+            body_id="ball",
+            body_type="dynamic",
+            shape="sphere",
+            size=[0.5],  # radius = 0.5m
+            mass=1.0,
+            position=[0, 10, 0],
+            restitution=0.7
         )
 
         # Add a falling box
@@ -471,14 +491,23 @@ async def add_rigid_body(
             position=[0.0, 5.0, 0.0]
         )
     """
+    # Backwards compatibility: convert radius/half_height to size if needed
+    actual_size = size
+    if actual_size is None and radius is not None:
+        # For sphere/capsule/cylinder, convert radius to size array
+        if shape == "sphere":
+            actual_size = [radius]
+        elif shape in ["capsule", "cylinder"] and half_height is not None:
+            actual_size = [half_height, radius]
+
     body = RigidBodyDefinition(
         id=body_id,
         kind=body_type,  # type: ignore
         shape=shape,  # type: ignore
         mass=mass,
-        size=size,
-        radius=radius,
-        half_height=half_height,
+        size=actual_size,
+        radius=None,  # Don't pass deprecated parameter
+        half_height=None,  # Don't pass deprecated parameter
         normal=normal,
         offset=offset,
         position=position or [0.0, 0.0, 0.0],

@@ -114,3 +114,9 @@ Thumbs.db
 physics.yaml
 *.tmp
 *.bak
+
+# ruff
+.ruff_cache/
+
+# ai
+.claude
