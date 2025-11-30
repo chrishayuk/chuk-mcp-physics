@@ -118,10 +118,15 @@ class RapierProvider(PhysicsProvider):
         Response: { "body_id": "..." }
         """
         async with httpx.AsyncClient(timeout=self.timeout) as client:
+            # Serialize to JSON-compatible format (enums → strings)
+            payload = body.model_dump(exclude_none=True, mode='json')
+            logger.debug(f"Adding body to {sim_id}: {payload}")
             response = await client.post(
                 f"{self.service_url}/simulations/{sim_id}/bodies",
-                json=body.model_dump(),
+                json=payload,
             )
+            if response.status_code != 200 and response.status_code != 201:
+                logger.error(f"Failed to add body. Status: {response.status_code}, Response: {response.text}")
             response.raise_for_status()
             data = response.json()
             return data["body_id"]
@@ -180,7 +185,22 @@ class RapierProvider(PhysicsProvider):
             )
             response.raise_for_status()
             data = response.json()
-            return TrajectoryResponse(**data)
+
+            # Transform Rapier service response to TrajectoryResponse format
+            # Rapier returns: {"body_id": str, "frames": [...], "total_time": float, "num_frames": int}
+            # We need: {"dt": float, "frames": [...], "meta": {...}}
+            from ..models import TrajectoryMeta
+
+            trajectory_dt = dt if dt is not None else 0.016  # Default from config
+            return TrajectoryResponse(
+                dt=trajectory_dt,
+                frames=data["frames"],
+                meta=TrajectoryMeta(
+                    body_id=f"rapier://{sim_id}/{data['body_id']}",
+                    total_time=data["total_time"],
+                    num_frames=data["num_frames"],
+                ),
+            )
 
     async def destroy_simulation(self, sim_id: str) -> None:
         """Destroy a simulation.

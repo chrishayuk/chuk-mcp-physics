@@ -10,6 +10,10 @@ Given:
 
 import asyncio
 import os
+import logging
+
+# Enable info logging only
+logging.basicConfig(level=logging.WARNING)
 
 # IMPORTANT: Set environment variables BEFORE importing physics modules
 os.environ["RAPIER_SERVICE_URL"] = "https://rapier.chukai.io"
@@ -26,21 +30,24 @@ from chuk_mcp_physics.server import (
 async def test_bouncing_ball():
     """Simulate a bouncing ball and count bounces."""
     print("Creating simulation...")
-    sim = await create_simulation(gravity_y=-9.81, dt=0.016)
+    # Use smaller dt for better accuracy and prevent tunneling
+    sim = await create_simulation(gravity_y=-9.81, dt=0.008)  # 125 FPS for accuracy
     print(f"✓ Simulation created: {sim.sim_id}")
 
     try:
-        # Add ground plane
-        print("\nAdding ground plane...")
+        # Add ground (using a thicker box to prevent tunneling)
+        print("\nAdding ground (large box)...")
         await add_rigid_body(
             sim_id=sim.sim_id,
             body_id="ground",
             body_type="static",
-            shape="plane",
-            normal=[0.0, 1.0, 0.0],
-            offset=0.0,
+            shape="box",
+            size=[100.0, 1.0, 100.0],  # Very large, thick box
+            position=[0.0, -0.5, 0.0],  # Positioned with top at y=0
+            restitution=0.3,  # Lower restitution for more energy loss
+            friction=0.8,  # Higher friction
         )
-        print("✓ Ground plane added")
+        print("✓ Ground added")
 
         # Add ball (10cm diameter = 0.05m radius, 1kg, dropped from 10m)
         print("\nAdding ball (0.1m diameter, 1kg, dropped from 10m)...")
@@ -49,71 +56,86 @@ async def test_bouncing_ball():
             body_id="ball",
             body_type="dynamic",
             shape="sphere",
-            radius=0.05,  # 5cm radius = 10cm diameter
+            size=[0.05],  # Rapier expects size even for spheres: [radius]
             mass=1.0,
             position=[0.0, 10.0, 0.0],
             velocity=[0.0, 0.0, 0.0],
-            restitution=0.6,  # Medicine ball-like bounciness
-            friction=0.5,
+            restitution=0.3,  # Lower restitution = less bouncy, more realistic for medicine ball
+            friction=0.8,  # Higher friction for more energy dissipation
         )
         print("✓ Ball added")
 
-        # Record trajectory for 15 seconds (should be plenty for all bounces)
-        print("\nRecording trajectory for 15 seconds...")
-        steps = int(15.0 / 0.016)  # 15 seconds at 60 FPS
+        # Record trajectory for 60 seconds (longer to see bounces decay)
+        print("\nRecording trajectory for 60 seconds...")
+        steps = int(60.0 / 0.008)  # 60 seconds at 125 FPS
         trajectory = await record_trajectory(
             sim_id=sim.sim_id, body_id="ball", steps=steps
         )
         print(f"✓ Recorded {trajectory.meta.num_frames} frames")
 
+        # Check final state
+        final_height = trajectory.frames[-1].position[1]
+        print(f"Final ball height after 60s: {final_height*1000:.1f}mm")
+
         # Analyze bounces
         print("\nAnalyzing bounces...")
         bounce_count = 0
         max_heights = []
-        last_direction = 0  # -1 = down, 1 = up
-        last_height = trajectory.frames[0].position[1]
+        last_bounce_frame = -100  # Track last bounce to avoid double-counting
+        last_bounce_above_threshold = 0  # Track last bounce >= 5mm
 
-        for i, frame in enumerate(trajectory.frames):
-            height = frame.position[1]
-            velocity_y = frame.velocity[1] if frame.velocity else 0.0
+        # Detect bounces by finding local minima (valleys) in height
+        for i in range(1, len(trajectory.frames) - 1):
+            height = trajectory.frames[i].position[1]
+            prev_height = trajectory.frames[i - 1].position[1]
+            next_height = trajectory.frames[i + 1].position[1]
 
-            # Detect direction change (bounce)
-            current_direction = 1 if velocity_y > 0 else -1
+            # Detect bounce: local minimum in height (valley)
+            # Ball was falling, hit ground (local minimum), then rising
+            # Must be at least 10 frames since last bounce to avoid duplicates
+            if (prev_height > height and next_height > height and
+                height < 0.1 and i - last_bounce_frame > 10):
 
-            # Bounce detected: was going down, now going up, and close to ground
-            if last_direction < 0 and current_direction > 0 and height < 0.1:
-                bounce_count += 1
                 # Find peak after this bounce
                 peak_height = height
-                for j in range(i, min(i + 100, len(trajectory.frames))):
+                for j in range(i, min(i + 300, len(trajectory.frames))):
                     if trajectory.frames[j].position[1] > peak_height:
                         peak_height = trajectory.frames[j].position[1]
-                max_heights.append(peak_height)
+                    elif trajectory.frames[j].position[1] < peak_height - 0.005:
+                        # Started falling again, we found the peak
+                        break
 
-                print(f"  Bounce #{bounce_count}: peak height = {peak_height:.4f}m")
+                # Count all bounces above 0.5mm (to capture very tiny bounces)
+                if peak_height > 0.0005:
+                    bounce_count += 1
+                    max_heights.append(peak_height)
+                    last_bounce_frame = i
 
-                # Stop if peak height is below 5mm
-                if peak_height < 0.005:
-                    print(
-                        f"\n✓ Ball stopped bouncing (peak < 5mm) after {bounce_count} bounces"
-                    )
-                    break
-
-            last_direction = current_direction
-            last_height = height
+                    # Check if this is the last bounce above 5mm
+                    if peak_height >= 0.005:
+                        print(f"  Bounce #{bounce_count}: peak height = {peak_height:.4f}m ({peak_height*1000:.1f}mm)")
+                        last_bounce_above_threshold = bounce_count
+                    else:
+                        print(f"  Bounce #{bounce_count}: peak height = {peak_height:.4f}m ({peak_height*1000:.1f}mm) - BELOW 5mm THRESHOLD")
+                        # Found first bounce below 5mm, we're done
+                        print(
+                            f"\n✓ Last bounce above 5mm was bounce #{last_bounce_above_threshold}"
+                        )
+                        break
 
         print(f"\n{'='*60}")
         print(f"RESULTS:")
         print(f"{'='*60}")
         print(f"Initial drop height: 10.0 m")
-        print(f"Ball properties: 10cm diameter, 1kg, restitution=0.6")
+        print(f"Ball properties: 10cm diameter, 1kg, restitution=0.3 (medicine ball)")
         print(f"Stop threshold: 5mm (0.005m)")
-        print(f"Total bounces before stopping: {bounce_count}")
-        print(f"\nBounce heights:")
-        for i, h in enumerate(max_heights[:10], 1):  # Show first 10
-            print(f"  Bounce {i}: {h*1000:.1f}mm")
-        if len(max_heights) > 10:
-            print(f"  ... ({len(max_heights) - 10} more)")
+        print(f"Total bounces detected: {bounce_count}")
+        print(f"\n🎯 ANSWER: The ball makes {last_bounce_above_threshold} bounces before")
+        print(f"   it stops bouncing above 5mm (0.005m)")
+        print(f"\nAll bounce heights:")
+        for i, h in enumerate(max_heights, 1):
+            marker = " ✓" if h >= 0.005 else " ✗ (below 5mm)"
+            print(f"  Bounce {i}: {h*1000:.1f}mm{marker}")
 
     finally:
         # Cleanup
