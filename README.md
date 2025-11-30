@@ -15,9 +15,26 @@ uvx chuk-mcp-physics
 
 # Or with the public Rapier service for simulations
 RAPIER_SERVICE_URL=https://rapier.chukai.io uvx chuk-mcp-physics
+
+# Or use the public hosted MCP server (no local installation)
+# Add to Claude Desktop config with URL: https://physics.chukai.io/mcp
 ```
 
 **For Claude Desktop:** Add to your config file:
+
+**Option 1: Public Hosted MCP Server (Easiest - No Installation)**
+```json
+{
+  "mcpServers": {
+    "physics": {
+      "command": "node",
+      "args": ["-e", "require('https').get('https://physics.chukai.io/mcp')"]
+    }
+  }
+}
+```
+
+**Option 2: Local uvx (Recommended)**
 ```json
 {
   "mcpServers": {
@@ -1054,6 +1071,12 @@ make docker-run
 ### Live Public Services
 
 **Current Production Services:**
+- **MCP Physics Server**: https://physics.chukai.io/mcp
+  - Public hosted MCP server endpoint
+  - No local installation required
+  - Pre-configured with Rapier service
+  - Ready to use in Claude Desktop
+
 - **Rapier Physics Engine**: https://rapier.chukai.io
   - Public API for physics simulations
   - No authentication required for basic usage
@@ -1064,7 +1087,7 @@ make docker-run
 # Test the public Rapier service
 curl https://rapier.chukai.io/health
 
-# Use with chuk-mcp-physics
+# Use with chuk-mcp-physics locally
 export RAPIER_SERVICE_URL=https://rapier.chukai.io
 uvx chuk-mcp-physics
 ```
