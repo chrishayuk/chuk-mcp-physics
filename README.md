@@ -7,6 +7,31 @@
 
 Provides LLMs with physics superpowers: ballistic calculations, collision prediction, rigid-body simulations, and trajectory recording for 3D visualization.
 
+## 🚀 Quick Start (30 seconds)
+
+```bash
+# Try it instantly with uvx (no installation needed)
+uvx chuk-mcp-physics
+
+# Or with the public Rapier service for simulations
+RAPIER_SERVICE_URL=https://rapier.chukai.io uvx chuk-mcp-physics
+```
+
+**For Claude Desktop:** Add to your config file:
+```json
+{
+  "mcpServers": {
+    "physics": {
+      "command": "uvx",
+      "args": ["chuk-mcp-physics"],
+      "env": {
+        "RAPIER_SERVICE_URL": "https://rapier.chukai.io"
+      }
+    }
+  }
+}
+```
+
 ---
 
 ## 🎯 Use Cases
@@ -385,12 +410,48 @@ chuk-mcp-physics
 
 Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
 
+#### Option 1: Using uvx (Recommended - No Installation Required)
+
+```json
+{
+  "mcpServers": {
+    "physics": {
+      "command": "uvx",
+      "args": ["chuk-mcp-physics"],
+      "env": {
+        "PHYSICS_PROVIDER": "rapier",
+        "RAPIER_SERVICE_URL": "https://rapier.chukai.io"
+      }
+    }
+  }
+}
+```
+
+#### Option 2: Using Installed Package
+
 ```json
 {
   "mcpServers": {
     "physics": {
       "command": "python",
       "args": ["-m", "chuk_mcp_physics.server"],
+      "env": {
+        "PHYSICS_PROVIDER": "rapier",
+        "RAPIER_SERVICE_URL": "https://rapier.chukai.io"
+      }
+    }
+  }
+}
+```
+
+#### Option 3: Analytic Only (No External Service)
+
+```json
+{
+  "mcpServers": {
+    "physics": {
+      "command": "uvx",
+      "args": ["chuk-mcp-physics"],
       "env": {
         "PHYSICS_PROVIDER": "analytic"
       }
@@ -504,21 +565,40 @@ python examples/05_rapier_simulation.py
 PHYSICS_PROVIDER=analytic          # or "rapier"
 
 # Rapier service (only if using Rapier provider)
-RAPIER_SERVICE_URL=http://localhost:9000
+# Option 1: Public service (recommended for getting started)
+RAPIER_SERVICE_URL=https://rapier.chukai.io
+
+# Option 2: Local development
+# RAPIER_SERVICE_URL=http://localhost:9000
+
+# Optional configuration
 RAPIER_TIMEOUT=30.0
+RAPIER_MAX_RETRIES=3
+RAPIER_RETRY_DELAY=1.0
 ```
 
 ### YAML Configuration
 
-Create `physics.yaml`:
+Create `physics.yaml` in your working directory or `~/.config/chuk-mcp-physics/`:
 
 ```yaml
-default_provider: analytic
+default_provider: rapier
+
+providers:
+  # Override provider per tool type
+  simulations: rapier
+  projectile_motion: analytic
 
 rapier:
-  service_url: http://localhost:9000
+  # Public service (recommended)
+  service_url: https://rapier.chukai.io
+
+  # Or local development
+  # service_url: http://localhost:9000
+
   timeout: 30.0
   max_retries: 3
+  retry_delay: 1.0
 ```
 
 ---
@@ -567,19 +647,29 @@ make docker-run
 
 ## ☁️ Production Deployment
 
-### Live Deployments
+### Live Public Services
 
 **Current Production Services:**
-- **MCP Physics Server**: https://chuk-mcp-physics.fly.dev/
-- **Rapier Service**: https://chuk-rapier-physics.fly.dev/
+- **Rapier Physics Engine**: https://rapier.chukai.io
+  - Public API for physics simulations
+  - No authentication required for basic usage
+  - Rate limits may apply
 
-Both services are deployed on Fly.io and configured to work together.
+**Quick Test:**
+```bash
+# Test the public Rapier service
+curl https://rapier.chukai.io/health
 
-### Recommended: Separate Deployment
+# Use with chuk-mcp-physics
+export RAPIER_SERVICE_URL=https://rapier.chukai.io
+uvx chuk-mcp-physics
+```
 
-For production, deploy the Rapier service and MCP server separately:
+### Deploy Your Own Rapier Service
 
-#### 1. Deploy Rapier Service First
+If you need your own private Rapier service instance:
+
+#### 1. Deploy Rapier Service to Fly.io
 
 ```bash
 cd rapier-service
@@ -588,72 +678,78 @@ cd rapier-service
 fly auth login
 
 # Create and deploy
-fly apps create chuk-rapier-physics
+fly apps create your-rapier-physics
 fly deploy
+
+# Add custom domain (optional)
+fly certs add rapier.yourdomain.com -a your-rapier-physics
 
 # Verify
-curl https://chuk-rapier-physics.fly.dev/health
+curl https://your-rapier-physics.fly.dev/health
 ```
 
-#### 2. Deploy MCP Server
+#### 2. Configure chuk-mcp-physics to Use Your Service
 
 ```bash
-cd ..  # Back to project root
+# Option 1: Environment variable
+export RAPIER_SERVICE_URL=https://rapier.yourdomain.com
+uvx chuk-mcp-physics
 
-# Create app
-fly apps create chuk-mcp-physics
-
-# Update fly.toml to use Rapier service
-# Set PHYSICS_PROVIDER=rapier
-# Set RAPIER_SERVICE_URL=https://chuk-rapier-physics.fly.dev
-
-# Deploy
-fly deploy
-
-# Check status
-fly status
+# Option 2: YAML config (physics.yaml)
+# rapier:
+#   service_url: https://rapier.yourdomain.com
 ```
 
-**Why separate deployment?**
-- ✅ Independent scaling (CPU-intensive Rapier vs lightweight MCP)
-- ✅ Faster deployments (update Python or Rust separately)
-- ✅ Cost optimization (scale each service independently)
-- ✅ Better isolation (Rust physics + Python MCP)
+**Why deploy your own?**
+- 🔒 Private instance for production workloads
+- 📈 Custom scaling and resource allocation
+- 🌍 Deploy closer to your users (different regions)
+- 💾 Persistent simulations and custom configurations
 
 See **[DEPLOYMENT.md](DEPLOYMENT.md)** for complete deployment guide, scaling strategies, and CI/CD setup.
-
-### Alternative: Quick Single Deployment
-
-For development/testing:
-
-```bash
-# Deploy everything together (not recommended for production)
-make fly-deploy
-fly status
-fly logs
-```
 
 ---
 
 ## 🦀 Rapier Service Setup
 
-For full rigid-body simulations, you need the Rapier service running.
+For full rigid-body simulations, you have several options:
 
-See **[RAPIER_SERVICE.md](RAPIER_SERVICE.md)** for:
-- Complete API specification
-- Rust implementation guide
-- Docker deployment
-- Testing examples
+### Option 1: Use Public Service (Easiest)
 
-Quick start:
+```bash
+# No setup required - just configure the URL
+export RAPIER_SERVICE_URL=https://rapier.chukai.io
+uvx chuk-mcp-physics
+```
+
+### Option 2: Run Locally with Docker
+
 ```bash
 # Using Docker
 docker run -p 9000:9000 chuk-rapier-service
 
-# Or build from source (see RAPIER_SERVICE.md)
+# Configure to use local service
+export RAPIER_SERVICE_URL=http://localhost:9000
+uvx chuk-mcp-physics
+```
+
+### Option 3: Build from Source
+
+```bash
+# Build and run the Rust service
 cd rapier-service
 cargo run --release
+
+# In another terminal
+export RAPIER_SERVICE_URL=http://localhost:9000
+uvx chuk-mcp-physics
 ```
+
+See **[RAPIER_SERVICE.md](RAPIER_SERVICE.md)** for:
+- Complete API specification
+- Rust implementation guide
+- Docker deployment details
+- Testing examples
 
 ---
 
