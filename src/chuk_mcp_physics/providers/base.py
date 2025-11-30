@@ -47,7 +47,7 @@ class PhysicsProvider(ABC):
         Returns:
             ProjectileMotionResponse with trajectory data
         """
-        pass
+        pass  # pragma: no cover
 
     @abstractmethod
     async def check_collision(self, request: CollisionCheckRequest) -> CollisionCheckResponse:
@@ -59,7 +59,7 @@ class PhysicsProvider(ABC):
         Returns:
             CollisionCheckResponse with collision prediction
         """
-        pass
+        pass  # pragma: no cover
 
     @abstractmethod
     async def calculate_force(self, request: ForceCalculationRequest) -> ForceCalculationResponse:
@@ -71,7 +71,7 @@ class PhysicsProvider(ABC):
         Returns:
             ForceCalculationResponse with force vector
         """
-        pass
+        pass  # pragma: no cover
 
     @abstractmethod
     async def calculate_kinetic_energy(
@@ -85,7 +85,7 @@ class PhysicsProvider(ABC):
         Returns:
             KineticEnergyResponse with energy value
         """
-        pass
+        pass  # pragma: no cover
 
     @abstractmethod
     async def calculate_momentum(self, request: MomentumRequest) -> MomentumResponse:
@@ -97,7 +97,7 @@ class PhysicsProvider(ABC):
         Returns:
             MomentumResponse with momentum vector
         """
-        pass
+        pass  # pragma: no cover
 
     # ========================================================================
     # Simulation Methods (may raise NotImplementedError for analytic provider)
@@ -116,7 +116,7 @@ class PhysicsProvider(ABC):
         Raises:
             NotImplementedError: If provider doesn't support simulations
         """
-        pass
+        pass  # pragma: no cover
 
     @abstractmethod
     async def add_body(self, sim_id: str, body: RigidBodyDefinition) -> str:
@@ -133,7 +133,7 @@ class PhysicsProvider(ABC):
             NotImplementedError: If provider doesn't support simulations
             ValueError: If simulation doesn't exist
         """
-        pass
+        pass  # pragma: no cover
 
     @abstractmethod
     async def step_simulation(
@@ -153,7 +153,7 @@ class PhysicsProvider(ABC):
             NotImplementedError: If provider doesn't support simulations
             ValueError: If simulation doesn't exist
         """
-        pass
+        pass  # pragma: no cover
 
     @abstractmethod
     async def get_simulation_state(self, sim_id: str) -> SimulationStepResponse:
@@ -169,7 +169,7 @@ class PhysicsProvider(ABC):
             NotImplementedError: If provider doesn't support simulations
             ValueError: If simulation doesn't exist
         """
-        pass
+        pass  # pragma: no cover
 
     @abstractmethod
     async def record_trajectory(
@@ -190,7 +190,7 @@ class PhysicsProvider(ABC):
             NotImplementedError: If provider doesn't support simulations
             ValueError: If simulation or body doesn't exist
         """
-        pass
+        pass  # pragma: no cover
 
     @abstractmethod
     async def destroy_simulation(self, sim_id: str) -> None:
@@ -203,4 +203,4 @@ class PhysicsProvider(ABC):
             NotImplementedError: If provider doesn't support simulations
             ValueError: If simulation doesn't exist
         """
-        pass
+        pass  # pragma: no cover

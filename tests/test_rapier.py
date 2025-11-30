@@ -211,7 +211,7 @@ class TestRapierSimulation:
         # Mock HTTP response
         mock_response = MagicMock()
         mock_response.json.return_value = {
-            "body_id": "test_body",
+            "dt": 0.016,
             "frames": [
                 {
                     "time": 0.0,
@@ -220,8 +220,11 @@ class TestRapierSimulation:
                     "velocity": [0.0, 0.0, 0.0],
                 }
             ],
-            "total_time": 1.0,
-            "num_frames": 1,
+            "meta": {
+                "body_id": "test_body",
+                "total_time": 1.0,
+                "num_frames": 1,
+            },
         }
         mock_response.raise_for_status = MagicMock()
 
@@ -232,8 +235,9 @@ class TestRapierSimulation:
 
             result = await rapier_provider.record_trajectory("sim_123", "test_body", steps=100)
 
-            assert result.body_id == "test_body"
-            assert result.num_frames == 1
+            assert result.dt == 0.016
+            assert result.meta.body_id == "test_body"
+            assert result.meta.num_frames == 1
 
     @pytest.mark.asyncio
     async def test_record_trajectory_with_dt(self, rapier_provider):
@@ -241,10 +245,13 @@ class TestRapierSimulation:
         # Mock HTTP response
         mock_response = MagicMock()
         mock_response.json.return_value = {
-            "body_id": "test_body",
+            "dt": 0.008,
             "frames": [],
-            "total_time": 0.0,
-            "num_frames": 0,
+            "meta": {
+                "body_id": "test_body",
+                "total_time": 0.0,
+                "num_frames": 0,
+            },
         }
         mock_response.raise_for_status = MagicMock()
 
@@ -257,7 +264,8 @@ class TestRapierSimulation:
                 "sim_123", "test_body", steps=100, dt=0.008
             )
 
-            assert result.body_id == "test_body"
+            assert result.dt == 0.008
+            assert result.meta.body_id == "test_body"
 
     @pytest.mark.asyncio
     async def test_destroy_simulation(self, rapier_provider):

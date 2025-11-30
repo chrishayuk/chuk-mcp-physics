@@ -354,6 +354,120 @@ function AnimatedBall({ trajectory }) {
 
 ---
 
+## 📊 Trajectory Data Format
+
+All trajectory recordings follow a canonical schema for maximum interoperability with R3F, Remotion, Three.js, and other animation systems.
+
+### Schema Definition
+
+```typescript
+interface Trajectory {
+  dt: number;              // Time step between frames (seconds)
+  frames: Frame[];         // Ordered list of frames
+  meta: {
+    body_id: string;       // Fully qualified: "rapier://sim-123/body-1"
+    total_time: number;    // Total duration (seconds)
+    num_frames: number;    // Frame count
+  };
+}
+
+interface Frame {
+  t: number;                               // Absolute time (seconds)
+  position: [number, number, number];      // [x, y, z] in meters
+  rotation: [number, number, number, number];  // Quaternion [x, y, z, w]
+  velocity?: [number, number, number];     // Optional: linear velocity (m/s)
+  angular_velocity?: [number, number, number];  // Optional: angular velocity (rad/s)
+}
+```
+
+### JSON Example
+
+```json
+{
+  "dt": 0.016,
+  "frames": [
+    {
+      "t": 0.0,
+      "position": [0, 1, 0],
+      "rotation": [0, 0, 0, 1],
+      "velocity": [0, 0, 0]
+    },
+    {
+      "t": 0.016,
+      "position": [0.1, 1.01, 0],
+      "rotation": [0, 0.01, 0, 0.9999],
+      "velocity": [6.25, 0.61, 0]
+    }
+  ],
+  "meta": {
+    "body_id": "rapier://sim-abc123/ball",
+    "total_time": 4.8,
+    "num_frames": 300
+  }
+}
+```
+
+### Usage in React Three Fiber
+
+```tsx
+import { useRef } from "react";
+import { useFrame } from "@react-three/fiber";
+
+function AnimatedObject({ trajectory }) {
+  const ref = useRef();
+
+  useFrame((state) => {
+    const elapsed = state.clock.getElapsedTime();
+    const frameIdx = Math.floor(elapsed / trajectory.dt);
+    const frame = trajectory.frames[frameIdx % trajectory.frames.length];
+
+    if (frame && ref.current) {
+      ref.current.position.fromArray(frame.position);
+      ref.current.quaternion.fromArray(frame.rotation);
+    }
+  });
+
+  return (
+    <mesh ref={ref}>
+      <sphereGeometry args={[0.5]} />
+      <meshStandardMaterial color="orange" />
+    </mesh>
+  );
+}
+```
+
+### Usage in Remotion
+
+```tsx
+import { useCurrentFrame } from "remotion";
+import { ThreeCanvas } from "@remotion/three";
+
+export const PhysicsAnimation = ({ trajectory }) => {
+  const frame = useCurrentFrame();
+  const frameData = trajectory.frames[frame];
+
+  return (
+    <AbsoluteFill>
+      <ThreeCanvas>
+        <mesh position={frameData.position}>
+          <sphereGeometry />
+        </mesh>
+      </ThreeCanvas>
+    </AbsoluteFill>
+  );
+};
+```
+
+### Design Notes
+
+- **Quaternions for rotation:** More compact and interpolation-friendly than Euler angles
+- **Absolute time:** Each frame has absolute time `t`, making scrubbing easier
+- **Constant dt:** Frames are evenly spaced, simplifying playback
+- **Optional velocities:** Include if needed for motion blur or physics visualization
+- **Qualified body_id:** Format is `rapier://sim-{id}/{body_id}` for traceability
+
+---
+
 ## 🛠️ Installation
 
 ### Prerequisites
@@ -464,25 +578,75 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
 
 ## 📖 Available Tools
 
-### Analytic Calculations (No Rapier Required)
+### Tool Organization
 
-| Tool | Description | Use Case |
-|------|-------------|----------|
-| `calculate_projectile_motion` | Ballistic trajectory calculation | Cannon shots, sports, games |
-| `check_collision` | Predict if two objects will collide | Crash avoidance, game logic |
-| `calculate_force` | F = ma calculations | Engineering, physics ed |
-| `calculate_kinetic_energy` | KE = ½mv² | Impact analysis, safety |
-| `calculate_momentum` | p = mv | Collision analysis, rockets |
+Tools are organized into two tiers to help you choose the right abstraction:
 
-### Simulations (Requires Rapier Service)
+#### 1️⃣ Analytic Primitives (No External Service)
 
-| Tool | Description | Use Case |
-|------|-------------|----------|
+**Best for:** Quick calculations, education, simple scenarios
+
+Direct formula-based calculations that return instant results:
+
+| Tool | What It Does | Example Use Case |
+|------|--------------|------------------|
+| `calculate_projectile_motion` | Ballistic trajectory using kinematic equations | "How far does a cannonball go?" |
+| `check_collision` | Predict if two spheres will collide | "Will these asteroids hit?" |
+| `calculate_force` | F = ma calculations | "What force accelerates this car?" |
+| `calculate_kinetic_energy` | KE = ½mv² | "How much energy in this crash?" |
+| `calculate_momentum` | p = mv | "What's the momentum transfer?" |
+
+**Characteristics:**
+- ⚡ Instant execution (< 1ms)
+- 📦 No external dependencies
+- 🎯 Exact mathematical solutions
+- ✅ Always available (no service required)
+
+**Limitations:**
+- Only spherical objects (for collisions)
+- No complex shapes
+- No multi-body interactions
+- No friction or material properties
+
+#### 2️⃣ Simulation Primitives (Requires Rapier Service)
+
+**Best for:** Complex physics, multi-body dynamics, visualization data
+
+Low-level building blocks for rigid-body simulations:
+
+| Tool | What It Does | When to Use |
+|------|--------------|-------------|
 | `create_simulation` | Initialize physics world | Start any simulation |
-| `add_rigid_body` | Add objects to simulation | Build scene |
-| `step_simulation` | Advance physics | Run simulation |
-| `record_trajectory` | Record motion over time | R3F animations |
+| `add_rigid_body` | Add objects (box, sphere, capsule, etc.) | Build scene |
+| `step_simulation` | Advance time | Run physics |
+| `record_trajectory` | Capture motion for R3F/Remotion | Generate animation data |
 | `destroy_simulation` | Cleanup resources | End simulation |
+
+**Characteristics:**
+- 🦀 Requires Rapier service
+- 🔄 Stateful (track simulation ID)
+- 🧩 Composable (combine for complex scenarios)
+- 💪 Full rigid-body dynamics
+
+**Typical workflow:**
+```python
+# 1. Create world
+sim = create_simulation(gravity_y=-9.81)
+
+# 2. Add objects
+add_rigid_body(sim.sim_id, "ground", type="static", shape="plane")
+add_rigid_body(sim.sim_id, "ball", type="dynamic", shape="sphere",
+               radius=0.5, position=[0, 5, 0])
+
+# 3. Run simulation
+step_simulation(sim.sim_id, steps=300)
+
+# 4. Record for visualization
+trajectory = record_trajectory(sim.sim_id, "ball", steps=300)
+
+# 5. Cleanup
+destroy_simulation(sim.sim_id)
+```
 
 ---
 
@@ -746,6 +910,100 @@ rapier:
   max_retries: 3
   retry_delay: 1.0
 ```
+
+---
+
+## 🛡️ Safety & Limits
+
+### Recommended Ranges
+
+Understanding these limits helps prevent timeouts, instabilities, and confusion:
+
+| Parameter | Recommended | Maximum | Notes |
+|-----------|-------------|---------|-------|
+| **Units** | meters, kg, seconds | - | SI units throughout |
+| **dt** | 0.008 - 0.033 | 0.001 - 0.1 | <0.008 = overkill, >0.033 = unstable |
+| **steps** | 100 - 5000 | 10,000 | Depends on dt and complexity |
+| **bodies** | 1 - 100 | 1,000 | Performance degrades >100 |
+| **gravity** | -20 to 0 m/s² | -100 to +100 | Earth = -9.81 |
+| **velocity** | 0 - 100 m/s | 1,000 m/s | Very high speeds may cause tunneling |
+| **mass** | 0.1 - 10,000 kg | 1e-6 - 1e6 | Extreme ratios cause instability |
+
+### Public Service Limits
+
+The public Rapier service at `https://rapier.chukai.io` has these limits:
+
+- **Max steps per call:** 5,000
+- **Max bodies per simulation:** 100
+- **Max concurrent simulations:** 10 per IP
+- **Request timeout:** 30 seconds
+- **Max simulation lifetime:** 1 hour (auto-cleanup)
+
+For larger simulations, run your own Rapier service (see [RAPIER_SERVICE.md](RAPIER_SERVICE.md)).
+
+### Common Pitfalls
+
+#### ❌ Simulation explodes or bodies fly away
+
+**Symptoms:**
+- Bodies gain extreme velocities
+- Objects disappear from view
+- NaN values in positions
+
+**Causes:**
+- `dt` too large for the forces involved
+- Very high mass ratios (1g object hitting 1000kg object)
+- Extreme initial velocities
+
+**Solutions:**
+- Reduce `dt` to 0.008 or lower
+- Use more similar masses (within 2-3 orders of magnitude)
+- Limit initial velocities to <100 m/s
+
+#### ❌ Simulation runs very slowly
+
+**Symptoms:**
+- Request takes >10 seconds
+- Timeout errors
+- High CPU usage
+
+**Causes:**
+- Too many bodies (>100)
+- Very small `dt` (<0.005)
+- Complex mesh colliders
+- Too many steps (>5000)
+
+**Solutions:**
+- Reduce body count or simplify shapes
+- Increase `dt` (balance accuracy vs. speed)
+- Break large step counts into multiple calls
+- Use primitive shapes (sphere, box) instead of meshes
+
+#### ❌ Objects tunnel through each other
+
+**Symptoms:**
+- Fast-moving objects pass through walls
+- Collisions not detected
+- Objects appear inside each other
+
+**Causes:**
+- Very high velocities + large `dt`
+- Thin colliders (<0.1m)
+- Disabled continuous collision detection (CCD)
+
+**Solutions:**
+- Reduce `dt` for high-speed scenarios
+- Thicken colliders (minimum 0.1m recommended)
+- Reduce velocities
+- Enable CCD if available (future feature)
+
+### Best Practices
+
+1. **Start simple:** Test with 2-3 bodies before scaling up
+2. **Validate inputs:** Check for NaN, Inf, extreme values before simulation
+3. **Monitor performance:** Track step time, adjust `dt`/steps accordingly
+4. **Cleanup:** Always `destroy_simulation` when done (prevent memory leaks)
+5. **Use analytic when possible:** For simple scenarios, analytic is faster and exact
 
 ---
 

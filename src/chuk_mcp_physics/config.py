@@ -150,3 +150,28 @@ class RapierConfig:
             str(_rapier_yaml.get("retry_delay", 1.0)),
         )
     )
+
+
+class SimulationLimits:
+    """Safety limits for physics simulations.
+
+    These limits prevent timeouts, instabilities, and resource exhaustion.
+    They can be overridden via environment variables if needed.
+    """
+
+    # General limits
+    MAX_STEPS_PER_CALL = int(os.getenv("PHYSICS_MAX_STEPS", "10000"))
+    MAX_BODIES_PER_SIM = int(os.getenv("PHYSICS_MAX_BODIES", "1000"))
+    MAX_DURATION = float(os.getenv("PHYSICS_MAX_DURATION", "60.0"))
+    MAX_TRAJECTORY_FRAMES = int(os.getenv("PHYSICS_MAX_TRAJECTORY_FRAMES", "10000"))
+
+    # Timestep constraints (seconds)
+    MIN_DT = float(os.getenv("PHYSICS_MIN_DT", "0.001"))
+    MAX_DT = float(os.getenv("PHYSICS_MAX_DT", "0.1"))
+    RECOMMENDED_DT = 0.016  # 60 FPS
+
+    # Public service limits (stricter for shared infrastructure)
+    PUBLIC_MAX_STEPS = 5_000
+    PUBLIC_MAX_BODIES = 100
+    PUBLIC_MAX_CONCURRENT_SIMS = 10
+    PUBLIC_TIMEOUT = 30.0

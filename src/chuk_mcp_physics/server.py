@@ -21,6 +21,7 @@ from typing import Optional
 
 from chuk_mcp_server import run, tool
 
+from .config import SimulationLimits
 from .models import (
     CollisionCheckRequest,
     CollisionCheckResponse,
@@ -371,6 +372,18 @@ async def create_simulation(
         )
         # Use sim.sim_id for add_body, step_simulation, etc.
     """
+    # Validate dt
+    if dt < SimulationLimits.MIN_DT:
+        raise ValueError(
+            f"dt={dt} is too small. Minimum is {SimulationLimits.MIN_DT}s. "
+            f"Very small timesteps provide diminishing returns and slow performance."
+        )
+    if dt > SimulationLimits.MAX_DT:
+        raise ValueError(
+            f"dt={dt} is too large. Maximum is {SimulationLimits.MAX_DT}s. "
+            f"Large timesteps cause instability. Recommended: {SimulationLimits.RECOMMENDED_DT}s (60 FPS)."
+        )
+
     config = SimulationConfig(
         gravity=[gravity_x, gravity_y, gravity_z],
         dimensions=dimensions,
@@ -513,6 +526,22 @@ async def step_simulation(
         for body in result.bodies:
             print(f"{body.id}: position={body.position}")
     """
+    # Validate steps
+    if steps > SimulationLimits.MAX_STEPS_PER_CALL:
+        raise ValueError(
+            f"Requested {steps} steps exceeds maximum of {SimulationLimits.MAX_STEPS_PER_CALL}. "
+            f"Break into multiple calls or reduce steps to avoid timeout."
+        )
+    if steps < 1:
+        raise ValueError("steps must be at least 1")
+
+    # Validate dt if provided
+    if dt is not None:
+        if dt < SimulationLimits.MIN_DT:
+            raise ValueError(f"dt={dt} is too small. Minimum is {SimulationLimits.MIN_DT}s")
+        if dt > SimulationLimits.MAX_DT:
+            raise ValueError(f"dt={dt} is too large. Maximum is {SimulationLimits.MAX_DT}s")
+
     provider = get_provider_for_tool("step_simulation")
     return await provider.step_simulation(sim_id, steps, dt)
 
@@ -558,6 +587,22 @@ async def record_trajectory(
         )
         # Use traj.frames in React Three Fiber for animation
     """
+    # Validate steps/frames
+    if steps > SimulationLimits.MAX_TRAJECTORY_FRAMES:
+        raise ValueError(
+            f"Requested {steps} frames exceeds maximum of {SimulationLimits.MAX_TRAJECTORY_FRAMES}. "
+            f"Reduce frame count to avoid excessive memory usage."
+        )
+    if steps < 1:
+        raise ValueError("steps must be at least 1")
+
+    # Validate dt if provided
+    if dt is not None:
+        if dt < SimulationLimits.MIN_DT:
+            raise ValueError(f"dt={dt} is too small. Minimum is {SimulationLimits.MIN_DT}s")
+        if dt > SimulationLimits.MAX_DT:
+            raise ValueError(f"dt={dt} is too large. Maximum is {SimulationLimits.MAX_DT}s")
+
     provider = get_provider_for_tool("record_trajectory")
     return await provider.record_trajectory(sim_id, body_id, steps, dt)
 
@@ -593,7 +638,7 @@ async def destroy_simulation(sim_id: str) -> str:
 # ============================================================================
 
 
-def main() -> None:
+def main() -> None:  # pragma: no cover
     """Run the Physics MCP server.
 
     Supports two transport modes:
@@ -620,11 +665,15 @@ def main() -> None:
         logging.getLogger("httpx").setLevel(logging.ERROR)
 
     # For HTTP mode, bind to 0.0.0.0 for container/cloud deployment
+    # This is intentional for Docker/Fly.io deployment and is safe when:
+    # 1. Running behind a reverse proxy (nginx, Fly.io edge)
+    # 2. Network-level firewall rules are in place
+    # 3. Not exposing directly to the internet
     if transport == "http":
-        run(transport=transport, host="0.0.0.0", port=8000)
+        run(transport=transport, host="0.0.0.0", port=8000)  # nosec B104
     else:
         run(transport=transport)
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     main()

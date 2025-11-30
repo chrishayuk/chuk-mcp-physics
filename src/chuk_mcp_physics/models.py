@@ -188,19 +188,42 @@ class SimulationStepResponse(BaseModel):
 class TrajectoryFrame(BaseModel):
     """Single frame in a trajectory recording."""
 
-    time: float = Field(..., description="Time in seconds")
-    position: list[float] = Field(..., description="Position [x, y, z]")
-    orientation: list[float] = Field(..., description="Orientation quaternion [x, y, z, w]")
-    velocity: list[float] = Field(..., description="Velocity [x, y, z]")
+    time: float = Field(..., description="Absolute time in seconds", alias="t")
+    position: list[float] = Field(..., description="Position [x, y, z] in meters")
+    orientation: list[float] = Field(
+        ..., description="Orientation quaternion [x, y, z, w]", alias="rotation"
+    )
+    velocity: Optional[list[float]] = Field(
+        None, description="Linear velocity [x, y, z] in m/s (optional)"
+    )
+    angular_velocity: Optional[list[float]] = Field(
+        None, description="Angular velocity [x, y, z] in rad/s (optional)"
+    )
+
+    class Config:
+        populate_by_name = True  # Allow both 't' and 'time', 'rotation' and 'orientation'
+
+
+class TrajectoryMeta(BaseModel):
+    """Metadata for trajectory recordings."""
+
+    body_id: str = Field(
+        ..., description='Fully qualified body identifier (e.g., "rapier://sim-123/ball")'
+    )
+    total_time: float = Field(..., description="Total simulation time in seconds")
+    num_frames: int = Field(..., description="Number of frames recorded")
 
 
 class TrajectoryResponse(BaseModel):
-    """Recorded trajectory for a body."""
+    """Recorded trajectory for a body.
 
-    body_id: str = Field(..., description="Body identifier")
+    This schema is the canonical contract between chuk-mcp-physics
+    and visualization systems (R3F, Remotion, Three.js, etc.).
+    """
+
+    dt: float = Field(..., description="Time step between frames in seconds")
     frames: list[TrajectoryFrame] = Field(..., description="Trajectory frames")
-    total_time: float = Field(..., description="Total simulation time")
-    num_frames: int = Field(..., description="Number of frames recorded")
+    meta: TrajectoryMeta = Field(..., description="Trajectory metadata")
 
 
 # ============================================================================
