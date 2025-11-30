@@ -594,18 +594,36 @@ async def destroy_simulation(sim_id: str) -> str:
 
 
 def main() -> None:
-    """Main entry point for the MCP server.
+    """Run the Physics MCP server.
 
     Supports two transport modes:
-    - stdio: For MCP clients (default)
+    - stdio: For MCP clients (default) - Claude Desktop, mcp-cli
     - http: For web/REST access (use --http or http argument)
     """
-    transport = "stdio"  # Default for MCP compatibility
+    # Check if transport is specified in command line args
+    # Default to stdio for MCP compatibility (Claude Desktop, mcp-cli)
+    transport = "stdio"
+
+    # Allow HTTP mode via command line
     if len(sys.argv) > 1 and sys.argv[1] in ["http", "--http"]:
         transport = "http"
+        # Only log in HTTP mode
+        logger.warning("Starting Physics MCP Server in HTTP mode")
 
-    logger.info(f"Starting Physics MCP server with {transport} transport")
-    run(transport=transport)
+    # Suppress chuk_mcp_server logging in STDIO mode
+    if transport == "stdio":
+        # Set chuk_mcp_server loggers to ERROR only
+        logging.getLogger("chuk_mcp_server").setLevel(logging.ERROR)
+        logging.getLogger("chuk_mcp_server.core").setLevel(logging.ERROR)
+        logging.getLogger("chuk_mcp_server.stdio_transport").setLevel(logging.ERROR)
+        # Suppress httpx logging (API calls to Rapier service)
+        logging.getLogger("httpx").setLevel(logging.ERROR)
+
+    # For HTTP mode, bind to 0.0.0.0 for container/cloud deployment
+    if transport == "http":
+        run(transport=transport, host="0.0.0.0", port=8000)
+    else:
+        run(transport=transport)
 
 
 if __name__ == "__main__":

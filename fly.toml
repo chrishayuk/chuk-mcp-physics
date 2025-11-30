@@ -10,11 +10,10 @@ primary_region = 'lhr'
 
 [env]
   # Provider configuration
-  PHYSICS_PROVIDER = "analytic"
+  PHYSICS_PROVIDER = "rapier"
 
   # Rapier service configuration (when using Rapier provider)
-  # RAPIER_SERVICE_URL = "http://localhost:9000"
-  # PHYSICS_PROVIDER = "rapier"
+  RAPIER_SERVICE_URL = "https://chuk-rapier-physics.fly.dev"
 
 [http_service]
   internal_port = 8000

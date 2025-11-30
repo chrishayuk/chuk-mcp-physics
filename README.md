@@ -334,23 +334,51 @@ function AnimatedBall({ trajectory }) {
 ### Prerequisites
 - Python 3.11+
 - For simulations: Rapier service (see [RAPIER_SERVICE.md](RAPIER_SERVICE.md))
+  - **Public service available at: https://rapier.chukai.io**
+  - Or run locally with Docker (see below)
 
-### Quick Start
+### Quick Start with uvx (Recommended)
+
+The fastest way to try chuk-mcp-physics without installation:
 
 ```bash
-# Install from PyPI (once published)
+# Run directly with uvx (no installation needed)
+uvx chuk-mcp-physics
+
+# With environment variables
+uvx --with chuk-mcp-physics chuk-mcp-physics
+```
+
+### Installation Methods
+
+#### Option 1: Install from PyPI (Recommended)
+
+```bash
+# Install globally
 pip install chuk-mcp-physics
 
-# Or install from source
-git clone https://github.com/yourusername/chuk-mcp-physics
-cd chuk-mcp-physics
-make dev-install
+# Or with pipx (isolated environment)
+pipx install chuk-mcp-physics
 
 # Run the server
 chuk-mcp-physics
 
 # Or via python module
 python -m chuk_mcp_physics.server
+```
+
+#### Option 2: Install from Source
+
+```bash
+# Clone repository
+git clone https://github.com/yourusername/chuk-mcp-physics
+cd chuk-mcp-physics
+
+# Install in development mode
+make dev-install
+
+# Run the server
+chuk-mcp-physics
 ```
 
 ### With Claude Desktop
@@ -539,6 +567,14 @@ make docker-run
 
 ## ☁️ Production Deployment
 
+### Live Deployments
+
+**Current Production Services:**
+- **MCP Physics Server**: https://chuk-mcp-physics.fly.dev/
+- **Rapier Service**: https://chuk-rapier-physics.fly.dev/
+
+Both services are deployed on Fly.io and configured to work together.
+
 ### Recommended: Separate Deployment
 
 For production, deploy the Rapier service and MCP server separately:
@@ -564,9 +600,12 @@ curl https://chuk-rapier-physics.fly.dev/health
 ```bash
 cd ..  # Back to project root
 
-# Create app and set Rapier URL
+# Create app
 fly apps create chuk-mcp-physics
-fly secrets set RAPIER_SERVICE_URL=https://chuk-rapier-physics.fly.dev
+
+# Update fly.toml to use Rapier service
+# Set PHYSICS_PROVIDER=rapier
+# Set RAPIER_SERVICE_URL=https://chuk-rapier-physics.fly.dev
 
 # Deploy
 fly deploy
