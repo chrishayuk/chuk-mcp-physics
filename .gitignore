@@ -108,7 +108,7 @@ Thumbs.db
 
 # uv
 .uv/
-uv.lock
+# Note: uv.lock should be committed for reproducible builds in CI
 
 # Project specific
 physics.yaml
