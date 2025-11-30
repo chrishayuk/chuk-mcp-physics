@@ -629,6 +629,40 @@ LLM: [calls create_simulation]
 
 ---
 
+## 💡 Try These Prompts
+
+Copy and paste these into your LLM chat to see the physics tools in action:
+
+### Projectile Motion
+- `A golf ball is hit at 70 m/s at 15 degrees. How far does it go and what's the flight time?`
+- `What angle gives maximum range for a cannonball fired at 100 m/s?`
+- `If I throw a javelin at 28 m/s from 2 meters high, what angle gives maximum distance?`
+- `A basketball player shoots from 2m high at 7 m/s toward a hoop 3.05m high and 4.6m away. What angles work?`
+
+### Collision Detection
+- `Two cars 500m apart, one at 60 mph, other at 45 mph heading toward each other. When do they collide?`
+- `Two asteroids: one at (0,0,0) moving at 1000 m/s in x direction, another at (50000, 100, 0) moving at -800 m/s in x. Will they collide?`
+- `Spaceship A at (10000,0,0) moving at (-50,0,0) m/s, spaceship B at (-10000,100,0) moving at (45,0,0) m/s. Collision check?`
+
+### Force, Energy & Momentum
+- `What force is needed to accelerate a 1500 kg car at 3 m/s²?`
+- `What's the kinetic energy of a 2000 kg car traveling at 30 m/s?`
+- `Calculate the momentum of a 70 kg runner sprinting at 10 m/s`
+- `How much energy does a 0.145 kg baseball have when pitched at 45 m/s?`
+
+### Real-World Applications
+- `I'm designing a water fountain. Water shoots up at 15 m/s. How high does it go?`
+- `A cannon on a 50 meter cliff fires horizontally at 200 m/s. How far from the base does the projectile land?`
+- `Two cars crash: Car A (1500kg) at 30 m/s, Car B (1200kg) at 25 m/s. What's the total kinetic energy at impact?`
+
+### Simulations (Requires Rapier Service)
+- `Create a simulation of a ball dropping from 10 meters height and bouncing on the ground`
+- `Simulate 5 boxes stacked on top of each other, then have another box hit them from the side`
+- `Create a Newton's cradle with 5 spheres and record their motion`
+- `Simulate a sphere rolling down a 30-degree ramp`
+
+---
+
 ## 📝 Example Scripts
 
 The `examples/` directory contains working demonstration scripts:
