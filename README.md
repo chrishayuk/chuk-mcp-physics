@@ -488,31 +488,143 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
 
 ## 🎓 Example Conversations
 
-### Simple Physics Question
+### Projectile Motion
 ```
-User: How far does a baseball go if I throw it at 30 m/s at 40 degrees?
+User: A golf ball is hit at 70 m/s at 15 degrees. How far does it go and what's the flight time?
 
-LLM: I'll calculate the projectile motion for you.
-     [calls calculate_projectile_motion(30, 40)]
+LLM: [calls calculate_projectile_motion(70, 15)]
 
-     The baseball will travel approximately 88.6 meters and reach a
-     maximum height of 28.4 meters. Flight time is 3.72 seconds.
+     Range ≈ 249.7 m
+     Time of flight ≈ 3.694 s
+     Maximum height ≈ 16.73 m
+
+     Here are 50 trajectory points for visualization...
 ```
 
-### Complex Simulation
 ```
-User: Simulate a Newton's cradle with 5 balls
+User: What angle gives maximum range for a cannonball fired at 100 m/s?
 
-LLM: I'll set up a physics simulation for that.
-     [calls create_simulation]
-     [calls add_rigid_body for frame (static)]
-     [calls add_rigid_body 5 times for balls (dynamic spheres)]
-     [sets ball 1 initial velocity]
-     [calls record_trajectory for each ball]
+LLM: [calls calculate_projectile_motion multiple times with different angles]
 
-     Simulation complete! The energy transfers perfectly through the balls.
-     Ball 1 stops, balls 2-4 barely move, ball 5 swings out with the same
-     velocity as ball 1 had. Here's the trajectory data for visualization...
+     The optimal angle is 45°, which gives:
+     - Maximum range: 1019.4 m
+     - Flight time: 14.4 s
+     - Peak height: 254.8 m
+```
+
+### Collision Detection
+```
+User: Two asteroids: one at (0,0,0) moving at 1000 m/s in x direction,
+      another at (50000, 100, 0) moving at -800 m/s in x. Will they collide?
+
+LLM: [calls check_collision with both objects]
+
+     Yes, they will collide!
+     - Collision time: ~27.8 seconds
+     - Impact location: (27,778, 100, 0)
+     - Impact speed: 1,800 m/s
+     - This would be a devastating impact given the closing speed.
+```
+
+```
+User: Two cars 500m apart, one at 60 mph, other at 45 mph heading toward each other.
+      When do they collide?
+
+LLM: [calls check_collision]
+
+     Collision in 10.7 seconds at position 250m from car 1's starting point.
+     Combined approach speed is 105 mph (46.9 m/s).
+```
+
+### Force & Energy Calculations
+```
+User: What force is needed to accelerate a 1500 kg car at 3 m/s²?
+
+LLM: [calls calculate_force(1500, 3)]
+
+     Force required: 4,500 N (Newtons)
+     This is about 1,011 pounds of force.
+```
+
+```
+User: What's the kinetic energy of a 2000 kg car at 30 m/s (about 67 mph)?
+
+LLM: [calls calculate_kinetic_energy(2000, 30)]
+
+     Kinetic energy: 900,000 J (Joules)
+     That's 900 kJ or 0.25 kWh of energy.
+     For perspective, this is why car crashes at highway speeds are so dangerous.
+```
+
+### Momentum Analysis
+```
+User: Calculate momentum of a 70 kg runner at 10 m/s
+
+LLM: [calls calculate_momentum(70, 10)]
+
+     Momentum: 700 kg⋅m/s
+     Direction: same as velocity vector
+```
+
+### Complex Multi-Step Problems
+```
+User: I'm designing a water fountain. Water shoots up at 15 m/s.
+      How high does it go and when does it come back down?
+
+LLM: [calls calculate_projectile_motion(15, 90)]
+
+     The water will:
+     - Rise to maximum height: 11.47 m
+     - Take 1.53 seconds to reach peak
+     - Return to ground level after 3.06 seconds total
+     - Have the same 15 m/s speed when it lands (just downward)
+```
+
+```
+User: A basketball player shoots from 2m high at 7 m/s toward a hoop
+      3.05m high and 4.6m away. What angles work?
+
+LLM: [calls calculate_projectile_motion with various angles]
+
+     Two possible angles work:
+     1. Low arc: 38° (faster, flatter shot)
+     2. High arc: 52° (slower, higher shot)
+
+     Most players use 50-55° for better chance of going in.
+```
+
+### Rigid Body Simulations
+```
+User: Create a simulation of a ball dropping from 10 meters and bouncing
+
+LLM: [calls create_simulation(gravity_y=-9.81)]
+     [calls add_rigid_body for ground plane (static)]
+     [calls add_rigid_body for ball (dynamic, sphere, position=(0,10,0))]
+     [calls record_trajectory(steps=200)]
+
+     Simulation complete! The ball:
+     - Hits ground at t=1.43s with velocity 14.0 m/s
+     - Bounces to 7.5m (with restitution=0.8)
+     - Makes 5 bounces before settling
+
+     Here's the full trajectory data for R3F visualization...
+```
+
+```
+User: Simulate 5 boxes stacked, then another box hits them from the side
+
+LLM: [calls create_simulation]
+     [calls add_rigid_body for ground]
+     [calls add_rigid_body 5 times for stacked boxes]
+     [calls add_rigid_body for projectile box with velocity]
+     [calls step_simulation(300)]
+     [calls record_trajectory for each box]
+
+     The collision causes a realistic toppling effect!
+     Boxes 1-2 fall left, boxes 3-5 scatter right.
+     Peak chaos at t=0.8s. All settled by t=3.2s.
+
+     Full trajectory data ready for 3D visualization...
 ```
 
 ---
