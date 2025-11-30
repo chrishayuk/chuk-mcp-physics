@@ -109,8 +109,6 @@ class RigidBodyDefinition(BaseModel):
     size: Optional[list[float]] = Field(
         None, description="Size parameters: [width, height, depth] for box, [radius] for sphere"
     )
-    radius: Optional[float] = Field(None, description="Radius for sphere/capsule/cylinder")
-    half_height: Optional[float] = Field(None, description="Half-height for capsule/cylinder")
     normal: Optional[list[float]] = Field(
         None, description="Normal vector [x, y, z] for plane (default [0, 1, 0])"
     )

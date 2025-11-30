@@ -15,9 +15,10 @@ All responses use Pydantic models for type safety and validation.
 No dictionary goop, no magic strings - everything is strongly typed with enums and constants.
 """
 
+import json
 import logging
 import sys
-from typing import Optional
+from typing import Optional, Union
 
 from chuk_mcp_server import run, tool
 
@@ -48,6 +49,37 @@ logging.basicConfig(
     level=logging.WARNING, format="%(levelname)s:%(name)s:%(message)s", stream=sys.stderr
 )
 logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# Helper Functions
+# ============================================================================
+
+
+def _parse_list(value: Union[list[float], str, None]) -> Optional[list[float]]:
+    """Parse list parameter that might come as string from MCP CLI.
+
+    The MCP CLI sometimes sends lists as JSON strings like '[0,1,0]' instead
+    of actual Python lists. This helper parses both formats.
+
+    Args:
+        value: Either a list, a JSON string, or None
+
+    Returns:
+        Parsed list or None
+    """
+    if value is None:
+        return None
+    if isinstance(value, list):
+        return value
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+            if isinstance(parsed, list):
+                return parsed
+        except (json.JSONDecodeError, ValueError):
+            pass
+    return None
 
 
 # ============================================================================
@@ -400,16 +432,14 @@ async def add_rigid_body(
     body_id: str,
     body_type: str,
     shape: str,
+    size: Union[list[float], str, None] = None,
     mass: float = 1.0,
-    size: Optional[list[float]] = None,
-    radius: Optional[float] = None,
-    half_height: Optional[float] = None,
-    normal: Optional[list[float]] = None,
+    normal: Union[list[float], str, None] = None,
     offset: Optional[float] = None,
-    position: Optional[list[float]] = None,
-    orientation: Optional[list[float]] = None,
-    velocity: Optional[list[float]] = None,
-    angular_velocity: Optional[list[float]] = None,
+    position: Union[list[float], str, None] = None,
+    orientation: Union[list[float], str, None] = None,
+    velocity: Union[list[float], str, None] = None,
+    angular_velocity: Union[list[float], str, None] = None,
     restitution: float = 0.5,
     friction: float = 0.5,
     is_sensor: bool = False,
@@ -427,15 +457,13 @@ async def add_rigid_body(
             - dynamic: Affected by forces and collisions
             - kinematic: Moves but not affected by forces (scripted motion)
         shape: Collider shape: "box", "sphere", "capsule", "cylinder", "plane"
-        mass: Mass in kilograms (for dynamic bodies). Default 1.0
-        size: Shape dimensions (REQUIRED for box and sphere):
+        size: Shape dimensions:
             - box: [width, height, depth]
             - sphere: [radius]
             - capsule: [half_height, radius]
             - cylinder: [half_height, radius]
-            - plane: not used (use normal/offset instead)
-        radius: DEPRECATED - use size parameter instead
-        half_height: DEPRECATED - use size parameter instead
+            - plane: not needed (use normal/offset instead)
+        mass: Mass in kilograms (for dynamic bodies). Default 1.0
         normal: Normal vector [x, y, z] for plane shape. Default [0, 1, 0] (upward)
         offset: Offset along normal for plane. Default 0.0
         position: Initial position [x, y, z]. Default [0, 0, 0]
@@ -450,8 +478,7 @@ async def add_rigid_body(
         body_id (echo of the input ID)
 
     Tips for LLMs:
-        - IMPORTANT: Always use 'size' parameter for shapes (not 'radius' or 'half_height')
-        - Create ground first: body_type="static", shape="plane"
+        - Create ground FIRST: body_type="static", shape="plane", normal=[0, 1, 0]
         - Box size is full width/height/depth (not half-extents)
         - Sphere size is [radius] (array with one element)
         - Quaternions: identity = [0, 0, 0, 1] (no rotation)
@@ -491,29 +518,26 @@ async def add_rigid_body(
             position=[0.0, 5.0, 0.0]
         )
     """
-    # Backwards compatibility: convert radius/half_height to size if needed
-    actual_size = size
-    if actual_size is None and radius is not None:
-        # For sphere/capsule/cylinder, convert radius to size array
-        if shape == "sphere":
-            actual_size = [radius]
-        elif shape in ["capsule", "cylinder"] and half_height is not None:
-            actual_size = [half_height, radius]
+    # Parse list parameters (they might come as JSON strings from MCP CLI)
+    parsed_size = _parse_list(size)
+    parsed_normal = _parse_list(normal)
+    parsed_position = _parse_list(position) or [0.0, 0.0, 0.0]
+    parsed_orientation = _parse_list(orientation) or [0.0, 0.0, 0.0, 1.0]
+    parsed_velocity = _parse_list(velocity) or [0.0, 0.0, 0.0]
+    parsed_angular_velocity = _parse_list(angular_velocity) or [0.0, 0.0, 0.0]
 
     body = RigidBodyDefinition(
         id=body_id,
         kind=body_type,  # type: ignore
         shape=shape,  # type: ignore
         mass=mass,
-        size=actual_size,
-        radius=None,  # Don't pass deprecated parameter
-        half_height=None,  # Don't pass deprecated parameter
-        normal=normal,
+        size=parsed_size,
+        normal=parsed_normal,
         offset=offset,
-        position=position or [0.0, 0.0, 0.0],
-        orientation=orientation or [0.0, 0.0, 0.0, 1.0],
-        velocity=velocity or [0.0, 0.0, 0.0],
-        angular_velocity=angular_velocity or [0.0, 0.0, 0.0],
+        position=parsed_position,
+        orientation=parsed_orientation,
+        velocity=parsed_velocity,
+        angular_velocity=parsed_angular_velocity,
         restitution=restitution,
         friction=friction,
         is_sensor=is_sensor,

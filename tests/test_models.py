@@ -88,10 +88,10 @@ class TestRigidBodyDefinition:
             id="ball",
             kind=BodyType.DYNAMIC,
             shape=ShapeType.SPHERE,
-            radius=0.5,
+            size=[0.5],
             mass=5.0,
         )
-        assert body.radius == 0.5
+        assert body.size == [0.5]
 
     def test_defaults(self):
         """Check default values."""
