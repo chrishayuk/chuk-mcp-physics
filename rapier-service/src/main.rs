@@ -94,7 +94,8 @@ struct SimulationConfigResponse {
 struct AddBodyRequest {
     id: String,
     kind: String, // "static", "dynamic", "kinematic"
-    shape: String, // "box", "sphere", "capsule"
+    shape: String, // "box", "sphere", "capsule", "plane"
+    #[serde(default)]
     size: Vec<f32>,
     #[serde(default)]
     mass: Option<f32>,
@@ -110,6 +111,10 @@ struct AddBodyRequest {
     friction: f32,
     #[serde(default = "default_restitution")]
     restitution: f32,
+    #[serde(default)]
+    normal: Option<[f32; 3]>, // For plane: normal vector
+    #[serde(default)]
+    offset: Option<f32>, // For plane: distance from origin
 }
 
 fn default_friction() -> f32 {
@@ -226,6 +231,8 @@ async fn add_body(
         req.angular_velocity,
         req.friction,
         req.restitution,
+        req.normal,
+        req.offset,
     );
 
     info!("Added body {} to simulation {}", req.id, sim_id);

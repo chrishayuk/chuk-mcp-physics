@@ -80,6 +80,8 @@ impl Simulation {
         angular_velocity: Option<[f32; 3]>,
         friction: f32,
         restitution: f32,
+        normal: Option<[f32; 3]>,
+        offset: Option<f32>,
     ) {
         // Create rigid body
         let pos = position.unwrap_or([0.0, 0.0, 0.0]);
@@ -129,6 +131,14 @@ impl Simulation {
                 let half_height = size.first().copied().unwrap_or(0.5);
                 let radius = size.get(1).copied().unwrap_or(0.25);
                 ColliderBuilder::capsule_y(half_height, radius)
+            }
+            "plane" => {
+                // Plane shape: infinite plane defined by normal vector and offset
+                let normal_arr = normal.unwrap_or([0.0, 1.0, 0.0]); // Default: upward facing
+                let plane_offset = offset.unwrap_or(0.0);
+                let normal_vec = Vector3::new(normal_arr[0], normal_arr[1], normal_arr[2]);
+                ColliderBuilder::halfspace(UnitVector::new_normalize(normal_vec))
+                    .translation(normal_vec * plane_offset)
             }
             _ => ColliderBuilder::ball(0.5), // Default to sphere
         }
