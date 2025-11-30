@@ -236,7 +236,7 @@ class TestRapierSimulation:
             result = await rapier_provider.record_trajectory("sim_123", "test_body", steps=100)
 
             assert result.dt == 0.016
-            assert result.meta.body_id == "test_body"
+            assert result.meta.body_id == "rapier://sim_123/test_body"
             assert result.meta.num_frames == 1
 
     @pytest.mark.asyncio
@@ -265,7 +265,7 @@ class TestRapierSimulation:
             )
 
             assert result.dt == 0.008
-            assert result.meta.body_id == "test_body"
+            assert result.meta.body_id == "rapier://sim_123/test_body"
 
     @pytest.mark.asyncio
     async def test_destroy_simulation(self, rapier_provider):

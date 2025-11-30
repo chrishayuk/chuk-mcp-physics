@@ -119,14 +119,16 @@ class RapierProvider(PhysicsProvider):
         """
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             # Serialize to JSON-compatible format (enums → strings)
-            payload = body.model_dump(exclude_none=True, mode='json')
+            payload = body.model_dump(exclude_none=True, mode="json")
             logger.debug(f"Adding body to {sim_id}: {payload}")
             response = await client.post(
                 f"{self.service_url}/simulations/{sim_id}/bodies",
                 json=payload,
             )
             if response.status_code != 200 and response.status_code != 201:
-                logger.error(f"Failed to add body. Status: {response.status_code}, Response: {response.text}")
+                logger.error(
+                    f"Failed to add body. Status: {response.status_code}, Response: {response.text}"
+                )
             response.raise_for_status()
             data = response.json()
             return data["body_id"]
@@ -192,13 +194,29 @@ class RapierProvider(PhysicsProvider):
             from ..models import TrajectoryMeta
 
             trajectory_dt = dt if dt is not None else 0.016  # Default from config
+
+            # Handle both response formats:
+            # 1. Flat: {"body_id": "...", "frames": [...], "total_time": ..., "num_frames": ...}
+            # 2. Nested: {"frames": [...], "meta": {"body_id": "...", "total_time": ..., "num_frames": ...}}
+            if "meta" in data:
+                # Nested format (from tests/future API)
+                meta_data = data["meta"]
+                response_body_id = meta_data.get("body_id", body_id)
+                total_time = meta_data["total_time"]
+                num_frames = meta_data["num_frames"]
+            else:
+                # Flat format (current Rapier service)
+                response_body_id = data.get("body_id", body_id)
+                total_time = data["total_time"]
+                num_frames = data["num_frames"]
+
             return TrajectoryResponse(
                 dt=trajectory_dt,
                 frames=data["frames"],
                 meta=TrajectoryMeta(
-                    body_id=f"rapier://{sim_id}/{data['body_id']}",
-                    total_time=data["total_time"],
-                    num_frames=data["num_frames"],
+                    body_id=f"rapier://{sim_id}/{response_body_id}",
+                    total_time=total_time,
+                    num_frames=num_frames,
                 ),
             )
 

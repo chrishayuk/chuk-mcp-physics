@@ -19,7 +19,7 @@ logging.basicConfig(level=logging.WARNING)
 os.environ["RAPIER_SERVICE_URL"] = "https://rapier.chukai.io"
 os.environ["PHYSICS_PROVIDER"] = "rapier"  # Use Rapier provider for simulations
 
-from chuk_mcp_physics.server import (
+from chuk_mcp_physics.server import (  # noqa: E402
     create_simulation,
     add_rigid_body,
     record_trajectory,
@@ -68,14 +68,12 @@ async def test_bouncing_ball():
         # Record trajectory for 60 seconds (longer to see bounces decay)
         print("\nRecording trajectory for 60 seconds...")
         steps = int(60.0 / 0.008)  # 60 seconds at 125 FPS
-        trajectory = await record_trajectory(
-            sim_id=sim.sim_id, body_id="ball", steps=steps
-        )
+        trajectory = await record_trajectory(sim_id=sim.sim_id, body_id="ball", steps=steps)
         print(f"✓ Recorded {trajectory.meta.num_frames} frames")
 
         # Check final state
         final_height = trajectory.frames[-1].position[1]
-        print(f"Final ball height after 60s: {final_height*1000:.1f}mm")
+        print(f"Final ball height after 60s: {final_height * 1000:.1f}mm")
 
         # Analyze bounces
         print("\nAnalyzing bounces...")
@@ -93,9 +91,12 @@ async def test_bouncing_ball():
             # Detect bounce: local minimum in height (valley)
             # Ball was falling, hit ground (local minimum), then rising
             # Must be at least 10 frames since last bounce to avoid duplicates
-            if (prev_height > height and next_height > height and
-                height < 0.1 and i - last_bounce_frame > 10):
-
+            if (
+                prev_height > height
+                and next_height > height
+                and height < 0.1
+                and i - last_bounce_frame > 10
+            ):
                 # Find peak after this bounce
                 peak_height = height
                 for j in range(i, min(i + 300, len(trajectory.frames))):
@@ -113,29 +114,33 @@ async def test_bouncing_ball():
 
                     # Check if this is the last bounce above 5mm
                     if peak_height >= 0.005:
-                        print(f"  Bounce #{bounce_count}: peak height = {peak_height:.4f}m ({peak_height*1000:.1f}mm)")
+                        print(
+                            f"  Bounce #{bounce_count}: peak height = {peak_height:.4f}m ({peak_height * 1000:.1f}mm)"
+                        )
                         last_bounce_above_threshold = bounce_count
                     else:
-                        print(f"  Bounce #{bounce_count}: peak height = {peak_height:.4f}m ({peak_height*1000:.1f}mm) - BELOW 5mm THRESHOLD")
+                        print(
+                            f"  Bounce #{bounce_count}: peak height = {peak_height:.4f}m ({peak_height * 1000:.1f}mm) - BELOW 5mm THRESHOLD"
+                        )
                         # Found first bounce below 5mm, we're done
                         print(
                             f"\n✓ Last bounce above 5mm was bounce #{last_bounce_above_threshold}"
                         )
                         break
 
-        print(f"\n{'='*60}")
-        print(f"RESULTS:")
-        print(f"{'='*60}")
-        print(f"Initial drop height: 10.0 m")
-        print(f"Ball properties: 10cm diameter, 1kg, restitution=0.3 (medicine ball)")
-        print(f"Stop threshold: 5mm (0.005m)")
+        print(f"\n{'=' * 60}")
+        print("RESULTS:")
+        print(f"{'=' * 60}")
+        print("Initial drop height: 10.0 m")
+        print("Ball properties: 10cm diameter, 1kg, restitution=0.3 (medicine ball)")
+        print("Stop threshold: 5mm (0.005m)")
         print(f"Total bounces detected: {bounce_count}")
         print(f"\n🎯 ANSWER: The ball makes {last_bounce_above_threshold} bounces before")
-        print(f"   it stops bouncing above 5mm (0.005m)")
-        print(f"\nAll bounce heights:")
+        print("   it stops bouncing above 5mm (0.005m)")
+        print("\nAll bounce heights:")
         for i, h in enumerate(max_heights, 1):
             marker = " ✓" if h >= 0.005 else " ✗ (below 5mm)"
-            print(f"  Bounce {i}: {h*1000:.1f}mm{marker}")
+            print(f"  Bounce {i}: {h * 1000:.1f}mm{marker}")
 
     finally:
         # Cleanup
