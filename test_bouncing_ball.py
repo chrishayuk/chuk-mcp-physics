@@ -10,15 +10,17 @@ Given:
 
 import asyncio
 import os
+
+# IMPORTANT: Set environment variables BEFORE importing physics modules
+os.environ["RAPIER_SERVICE_URL"] = "https://rapier.chukai.io"
+os.environ["PHYSICS_PROVIDER"] = "rapier"  # Use Rapier provider for simulations
+
 from chuk_mcp_physics.server import (
     create_simulation,
     add_rigid_body,
     record_trajectory,
     destroy_simulation,
 )
-
-# Use public Rapier service
-os.environ["RAPIER_SERVICE_URL"] = "https://rapier.chukai.io"
 
 
 async def test_bouncing_ball():
