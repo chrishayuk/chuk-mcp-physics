@@ -4,9 +4,12 @@ Implements acceleration from position, jerk, trajectory fitting, and motion anal
 """
 
 import math
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, Field
+
+if TYPE_CHECKING:
+    from .models import ProjectileWithDragRequest, ProjectileWithDragResponse
 
 
 # ============================================================================
@@ -497,4 +500,218 @@ def calculate_instantaneous_velocity(
         velocity=velocity,
         speed=speed,
         interpolated=interpolated,
+    )
+
+
+def calculate_projectile_with_drag(
+    request: "ProjectileWithDragRequest",
+) -> "ProjectileWithDragResponse":
+    """Calculate projectile motion with air resistance using RK4 integration.
+
+    This function numerically integrates the equations of motion including:
+    - Quadratic drag force: F_drag = 0.5 * ρ * v² * Cd * A
+    - Magnus force (spin effects): F_magnus = 0.5 * ρ * Cl * A * ω * r * v
+    - Wind effects (constant wind vector)
+    - Variable air density (altitude and temperature effects)
+
+    Args:
+        request: Projectile parameters including drag coefficients and optional enhancements
+
+    Returns:
+        Complete trajectory with drag effects including energy dissipation
+    """
+    from .models import ProjectileWithDragResponse
+
+    # Initial conditions
+    v0 = request.initial_velocity
+    theta_rad = math.radians(request.angle_degrees)
+    h0 = request.initial_height
+    g = request.gravity
+    m = request.mass
+    cd = request.drag_coefficient
+    area = request.cross_sectional_area
+    dt = request.time_step
+
+    # Calculate effective air density based on altitude and temperature
+    # Using barometric formula and ideal gas law
+    # ρ(h) = ρ₀ * exp(-Mgh/RT) * (T₀/T)
+    rho_sea_level = request.fluid_density
+    altitude = request.altitude
+    temp_celsius = request.temperature
+    temp_kelvin = temp_celsius + 273.15
+
+    # Barometric formula constants
+    M = 0.029  # Molar mass of air (kg/mol)
+    R = 8.314  # Gas constant (J/(mol·K))
+    T0 = 288.15  # Standard temperature (15°C in Kelvin)
+
+    # Effective density with altitude and temperature
+    altitude_factor = math.exp(-M * g * altitude / (R * T0))
+    temperature_factor = T0 / temp_kelvin
+    rho = rho_sea_level * altitude_factor * temperature_factor
+
+    # Wind velocity
+    wind_vx, wind_vy = request.wind_velocity[0], request.wind_velocity[1]
+
+    # Spin parameters for Magnus force
+    omega = request.spin_rate  # rad/s
+    spin_axis = request.spin_axis  # Unit vector [x, y, z]
+
+    # Magnus coefficient (Cl ~ 1.0 for spinning sphere)
+    # Simplified: F_magnus = Cl * (1/2) * ρ * A * v * ω * r
+    # For sphere: Cl ≈ 1.0, and ω*r is tangential velocity
+    cl_magnus = 1.0 if omega > 0 else 0.0
+
+    # Initial velocity components (relative to ground)
+    vx = v0 * math.cos(theta_rad)
+    vy = v0 * math.sin(theta_rad)
+    vz = 0.0  # Start with no lateral velocity
+
+    # State: [x, y, z, vx, vy, vz] (3D motion for spin effects)
+    x, y, z = 0.0, h0, 0.0
+
+    # Storage for trajectory
+    trajectory_points = [[0.0, h0]]
+    max_height = h0
+    t = 0.0
+    max_magnus_force = 0.0
+    max_lateral_deflection = 0.0
+
+    # Initial energy
+    initial_ke = 0.5 * m * v0 * v0
+
+    # RK4 integration
+    def derivatives(state):
+        """Compute derivatives [dx/dt, dy/dt, dz/dt, dvx/dt, dvy/dt, dvz/dt]."""
+        _, _, _, vx_curr, vy_curr, vz_curr = state
+
+        # Velocity relative to wind
+        vx_rel = vx_curr - wind_vx
+        vy_rel = vy_curr - wind_vy
+        vz_rel = vz_curr  # No lateral wind component
+
+        # Relative velocity magnitude
+        v_rel_mag = math.sqrt(vx_rel * vx_rel + vy_rel * vy_rel + vz_rel * vz_rel)
+
+        if v_rel_mag < 1e-10:
+            # No motion, no forces except gravity
+            return [0.0, 0.0, 0.0, 0.0, -g, 0.0]
+
+        # Drag force magnitude: F_drag = 0.5 * ρ * v_rel² * Cd * A
+        drag_mag = 0.5 * rho * v_rel_mag * v_rel_mag * cd * area
+
+        # Drag force components (oppose relative velocity)
+        f_drag_x = -drag_mag * (vx_rel / v_rel_mag)
+        f_drag_y = -drag_mag * (vy_rel / v_rel_mag)
+        f_drag_z = -drag_mag * (vz_rel / v_rel_mag)
+
+        # Magnus force (perpendicular to both velocity and spin axis)
+        # F_magnus = (1/2) * ρ * Cl * A * v * ω * r
+        # Direction: spin_axis × v_rel (cross product)
+        # Simplified for 2D: if spinning about z-axis, force is perpendicular to velocity
+        f_magnus_x, f_magnus_y, f_magnus_z = 0.0, 0.0, 0.0
+
+        if omega > 0:
+            # Cross product: spin_axis × v_rel
+            # [sx, sy, sz] × [vx, vy, vz] = [sy*vz - sz*vy, sz*vx - sx*vz, sx*vy - sy*vx]
+            sx, sy, sz = spin_axis[0], spin_axis[1], spin_axis[2]
+            cross_x = sy * vz_rel - sz * vy_rel
+            cross_y = sz * vx_rel - sx * vz_rel
+            cross_z = sx * vy_rel - sy * vx_rel
+
+            cross_mag = math.sqrt(cross_x**2 + cross_y**2 + cross_z**2)
+
+            if cross_mag > 1e-10:
+                # Magnus force magnitude (simplified)
+                # Using radius from area: r = sqrt(A/π)
+                radius = math.sqrt(area / math.pi)
+                magnus_mag = 0.5 * rho * cl_magnus * area * v_rel_mag * omega * radius
+
+                # Magnus force components (in direction of spin × velocity)
+                f_magnus_x = magnus_mag * (cross_x / cross_mag)
+                f_magnus_y = magnus_mag * (cross_y / cross_mag)
+                f_magnus_z = magnus_mag * (cross_z / cross_mag)
+
+        # Total acceleration
+        ax = (f_drag_x + f_magnus_x) / m
+        ay = (f_drag_y + f_magnus_y) / m - g
+        az = (f_drag_z + f_magnus_z) / m
+
+        return [vx_curr, vy_curr, vz_curr, ax, ay, az]
+
+    # Integrate until hitting ground or timeout
+    while y >= 0 and t < request.max_time:
+        state = [x, y, z, vx, vy, vz]
+
+        # RK4 steps
+        k1 = derivatives(state)
+        k2 = derivatives([state[i] + 0.5 * dt * k1[i] for i in range(6)])
+        k3 = derivatives([state[i] + 0.5 * dt * k2[i] for i in range(6)])
+        k4 = derivatives([state[i] + dt * k3[i] for i in range(6)])
+
+        # Update state
+        for i in range(6):
+            state[i] += (dt / 6.0) * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i])
+
+        x, y, z, vx, vy, vz = state
+        t += dt
+
+        # Track max height
+        if y > max_height:
+            max_height = y
+
+        # Track lateral deflection
+        if abs(z) > max_lateral_deflection:
+            max_lateral_deflection = abs(z)
+
+        # Track max Magnus force
+        if omega > 0:
+            vx_rel = vx - wind_vx
+            vy_rel = vy - wind_vy
+            v_rel_mag = math.sqrt(vx_rel**2 + vy_rel**2 + vz**2)
+            if v_rel_mag > 1e-10:
+                radius = math.sqrt(area / math.pi)
+                magnus_mag = 0.5 * rho * cl_magnus * area * v_rel_mag * omega * radius
+                if magnus_mag > max_magnus_force:
+                    max_magnus_force = magnus_mag
+
+        # Store trajectory point (sample regularly for visualization)
+        step_count = int(t / dt)
+        if step_count % 10 == 0:  # Sample every 10th step
+            trajectory_points.append([x, y])
+
+    # Add final point
+    trajectory_points.append([x, y])
+
+    # Final state
+    range_distance = x
+    time_of_flight = t
+    final_speed = math.sqrt(vx * vx + vy * vy + vz * vz)
+    final_ke = 0.5 * m * final_speed * final_speed
+
+    # Impact angle (below horizontal)
+    horizontal_speed = math.sqrt(vx * vx + vz * vz)
+    impact_angle_rad = math.atan2(-vy, horizontal_speed)
+    impact_angle = math.degrees(impact_angle_rad)
+
+    # Energy dissipated by drag
+    energy_lost = initial_ke - final_ke
+
+    # Wind drift (horizontal component only)
+    wind_drift = wind_vx * time_of_flight
+
+    return ProjectileWithDragResponse(
+        max_height=max_height,
+        range=range_distance,
+        time_of_flight=time_of_flight,
+        impact_velocity=final_speed,
+        impact_angle=abs(impact_angle),
+        trajectory_points=trajectory_points,
+        energy_lost_to_drag=energy_lost,
+        initial_kinetic_energy=initial_ke,
+        final_kinetic_energy=final_ke,
+        lateral_deflection=max_lateral_deflection,
+        magnus_force_max=max_magnus_force,
+        wind_drift=wind_drift,
+        effective_air_density=rho,
     )

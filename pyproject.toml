@@ -1,6 +1,6 @@
 [project]
 name = "chuk-mcp-physics"
-version = "0.4"
+version = "0.5"
 description = "MCP server for physics simulations and calculations using Rapier physics engine"
 authors = [
     {name = "Chris Hay", email = "chris@example.com"}

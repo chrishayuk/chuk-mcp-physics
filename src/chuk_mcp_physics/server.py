@@ -196,6 +196,10 @@ async def add_rigid_body(
     is_sensor: bool = False,
     linear_damping: float = 0.0,
     angular_damping: float = 0.0,
+    drag_coefficient: Optional[float] = None,
+    drag_area: Optional[float] = None,
+    drag_axis_ratios: Union[list[float], str, None] = None,
+    fluid_density: float = 1.225,
 ) -> str:
     """Add a rigid body to an existing simulation.
 
@@ -228,6 +232,10 @@ async def add_rigid_body(
         is_sensor: If true, detects collisions but doesn't respond physically. Default false
         linear_damping: Linear velocity damping (0.0-1.0) - like air resistance. Default 0.0
         angular_damping: Angular velocity damping (0.0-1.0) - like rotational friction. Default 0.0
+        drag_coefficient: Base drag coefficient (Cd) for orientation-dependent drag. Optional
+        drag_area: Reference cross-sectional area (m²) for drag calculation. Optional
+        drag_axis_ratios: Drag variation along body axes [x, y, z]. E.g., [1.0, 0.2, 1.0] for streamlined along Y. Optional
+        fluid_density: Fluid density (kg/m³). Air=1.225, Water=1000. Default 1.225
 
     Returns:
         body_id (echo of the input ID)
@@ -280,6 +288,7 @@ async def add_rigid_body(
     parsed_orientation = _parse_list(orientation) or [0.0, 0.0, 0.0, 1.0]
     parsed_velocity = _parse_list(velocity) or [0.0, 0.0, 0.0]
     parsed_angular_velocity = _parse_list(angular_velocity) or [0.0, 0.0, 0.0]
+    parsed_drag_axis_ratios = _parse_list(drag_axis_ratios)
 
     body = RigidBodyDefinition(
         id=body_id,
@@ -298,6 +307,10 @@ async def add_rigid_body(
         is_sensor=is_sensor,
         linear_damping=linear_damping,
         angular_damping=angular_damping,
+        drag_coefficient=drag_coefficient,
+        drag_area=drag_area,
+        drag_axis_ratios=parsed_drag_axis_ratios,
+        fluid_density=fluid_density,
     )
     provider = get_provider_for_tool("add_body")
     return await provider.add_body(sim_id, body)

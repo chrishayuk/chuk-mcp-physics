@@ -193,6 +193,28 @@ class RigidBodyDefinition(BaseModel):
         le=1.0,
     )
 
+    # Orientation-Dependent Drag (Advanced)
+    drag_coefficient: Optional[float] = Field(
+        None,
+        description="Base drag coefficient (Cd) for aerodynamic drag force",
+        ge=0.0,
+    )
+    drag_area: Optional[float] = Field(
+        None,
+        description="Reference cross-sectional area for drag calculation (m²)",
+        gt=0.0,
+    )
+    drag_axis_ratios: Optional[list[float]] = Field(
+        None,
+        description="Drag coefficient ratios [x, y, z] relative to base Cd for orientation-dependent drag. "
+        "E.g., [1.0, 0.3, 1.0] for streamlined in Y direction (like football)",
+    )
+    fluid_density: float = Field(
+        default=1.225,
+        description="Fluid density for drag calculation (kg/m³). Air=1.225, Water=1000",
+        gt=0.0,
+    )
+
 
 class JointDefinition(BaseModel):
     """Definition for creating a joint between two bodies."""
@@ -354,6 +376,84 @@ class ProjectileMotionResponse(BaseModel):
     time_of_flight: float = Field(..., description="Total time in the air in seconds")
     trajectory_points: list[list[float]] = Field(
         ..., description="Sample trajectory points [[x, y], [x, y], ...]"
+    )
+
+
+class ProjectileWithDragRequest(BaseModel):
+    """Request for projectile motion calculation with air resistance.
+
+    Supports optional enhancements:
+    - Spin effects (Magnus force) for curveballs, slices, hooks
+    - Wind effects (constant wind vector)
+    - Variable air density (altitude effects)
+    """
+
+    initial_velocity: float = Field(..., description="Initial velocity in m/s", gt=0.0)
+    angle_degrees: float = Field(..., description="Launch angle in degrees", ge=0.0, le=90.0)
+    initial_height: float = Field(default=0.0, description="Initial height in meters", ge=0.0)
+    mass: float = Field(..., description="Object mass in kg", gt=0.0)
+    drag_coefficient: float = Field(
+        default=0.47, description="Drag coefficient (sphere=0.47, baseball=0.4)", ge=0.0
+    )
+    cross_sectional_area: float = Field(..., description="Cross-sectional area in m²", gt=0.0)
+    fluid_density: float = Field(
+        default=1.225, description="Fluid density in kg/m³ (air=1.225, water=1000)", gt=0.0
+    )
+    gravity: float = Field(default=9.81, description="Gravitational acceleration (m/s²)", gt=0.0)
+    time_step: float = Field(
+        default=0.01, description="Integration time step in seconds", gt=0.0, le=0.1
+    )
+    max_time: float = Field(default=30.0, description="Maximum simulation time in seconds", gt=0.0)
+
+    # Optional enhancements
+    spin_rate: float = Field(
+        default=0.0, description="Spin rate in rad/s (for Magnus force)", ge=0.0
+    )
+    spin_axis: list[float] = Field(
+        default=[0.0, 0.0, 1.0],
+        description="Spin axis unit vector [x, y, z] (perpendicular to motion for max effect)",
+    )
+    wind_velocity: list[float] = Field(
+        default=[0.0, 0.0], description="Wind velocity [vx, vy] in m/s (horizontal, vertical)"
+    )
+    altitude: float = Field(
+        default=0.0, description="Altitude above sea level in meters (affects air density)", ge=0.0
+    )
+    temperature: float = Field(
+        default=15.0,
+        description="Air temperature in Celsius (affects air density)",
+        ge=-50.0,
+        le=60.0,
+    )
+
+
+class ProjectileWithDragResponse(BaseModel):
+    """Response for projectile motion with drag calculation."""
+
+    max_height: float = Field(..., description="Maximum height reached in meters")
+    range: float = Field(..., description="Horizontal range in meters")
+    time_of_flight: float = Field(..., description="Total time in the air in seconds")
+    impact_velocity: float = Field(..., description="Speed at landing in m/s")
+    impact_angle: float = Field(..., description="Angle at landing in degrees (below horizontal)")
+    trajectory_points: list[list[float]] = Field(
+        ..., description="Sample trajectory points [[x, y], [x, y], ...]"
+    )
+    energy_lost_to_drag: float = Field(..., description="Energy dissipated by drag in joules")
+    initial_kinetic_energy: float = Field(..., description="Initial kinetic energy in joules")
+    final_kinetic_energy: float = Field(..., description="Final kinetic energy in joules")
+
+    # Enhancement tracking
+    lateral_deflection: float = Field(
+        default=0.0,
+        description="Lateral deflection from spin/wind in meters (perpendicular to launch)",
+    )
+    magnus_force_max: float = Field(
+        default=0.0, description="Maximum Magnus force magnitude in Newtons"
+    )
+    wind_drift: float = Field(default=0.0, description="Total wind drift in meters (horizontal)")
+    effective_air_density: float = Field(
+        default=1.225,
+        description="Effective air density used (kg/m³) accounting for altitude/temperature",
     )
 
 

@@ -128,6 +128,15 @@ struct AddBodyRequest {
     linear_damping: Option<f32>, // Linear velocity damping (Phase 1.4)
     #[serde(default)]
     angular_damping: Option<f32>, // Angular velocity damping (Phase 1.4)
+    // Orientation-dependent drag parameters (Phase 2)
+    #[serde(default)]
+    drag_coefficient: Option<f32>, // Base drag coefficient (Cd)
+    #[serde(default)]
+    drag_area: Option<f32>, // Reference cross-sectional area (m²)
+    #[serde(default)]
+    drag_axis_ratios: Option<[f32; 3]>, // Drag variation along body axes [x, y, z]
+    #[serde(default)]
+    fluid_density: Option<f32>, // Fluid density (kg/m³), default 1.225 for air
 }
 
 fn default_friction() -> f32 {
@@ -278,6 +287,10 @@ async fn add_body(
         req.offset,
         req.linear_damping,
         req.angular_damping,
+        req.drag_coefficient,
+        req.drag_area,
+        req.drag_axis_ratios,
+        req.fluid_density,
     );
 
     info!("Added body {} to simulation {}", req.id, sim_id);

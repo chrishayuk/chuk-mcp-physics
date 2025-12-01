@@ -50,6 +50,15 @@ fn default_anchor() -> [f32; 3] {
     [0.0, 0.0, 0.0]
 }
 
+#[derive(Debug, Clone)]
+pub struct DragProperties {
+    pub drag_coefficient: f32,  // Base drag coefficient (Cd)
+    pub drag_area: f32,  // Reference cross-sectional area (m²)
+    pub drag_axis_ratios: [f32; 3],  // Drag variation along body axes [x, y, z]
+    pub fluid_density: f32,  // Fluid density (kg/m³)
+    pub use_damping_only: bool,  // If true, use Rapier's damping instead of force-based drag
+}
+
 #[allow(dead_code)]
 pub struct Simulation {
     pub config: SimulationConfig,
@@ -76,6 +85,9 @@ pub struct Simulation {
     // Joint tracking (Phase 1.3)
     joint_ids: HashMap<String, ImpulseJointHandle>,
     joint_names: HashMap<ImpulseJointHandle, String>,
+
+    // Drag tracking (Phase 2)
+    body_drag_properties: HashMap<RigidBodyHandle, DragProperties>,
 }
 
 impl Simulation {
@@ -106,6 +118,7 @@ impl Simulation {
             contact_events: Vec::new(),
             joint_ids: HashMap::new(),
             joint_names: HashMap::new(),
+            body_drag_properties: HashMap::new(),
         }
     }
 
@@ -126,6 +139,10 @@ impl Simulation {
         offset: Option<f32>,
         linear_damping: Option<f32>,
         angular_damping: Option<f32>,
+        drag_coefficient: Option<f32>,
+        drag_area: Option<f32>,
+        drag_axis_ratios: Option<[f32; 3]>,
+        fluid_density: Option<f32>,
     ) {
         // Create rigid body
         let pos = position.unwrap_or([0.0, 0.0, 0.0]);
@@ -214,6 +231,61 @@ impl Simulation {
 
         self.body_ids.insert(id.clone(), body_handle);
         self.body_names.insert(body_handle, id);
+
+        // Hybrid drag approach: use damping for extreme cases, force-based drag for normal cases (Phase 2)
+        if let (Some(cd), Some(area), Some(ratios), Some(density)) =
+            (drag_coefficient, drag_area, drag_axis_ratios, fluid_density) {
+
+            let m = mass.unwrap_or(1.0);
+            let g = 9.81;
+            let v_ref = 15.0; // Reference velocity for classification (m/s)
+
+            // Calculate drag-to-weight ratio at reference velocity
+            let drag_at_vref = 0.5 * density * cd * area * v_ref * v_ref;
+            let weight = m * g;
+            let drag_weight_ratio = if weight > 1e-6 {
+                drag_at_vref / weight
+            } else {
+                0.0
+            };
+
+            // Threshold for extreme drag: if drag > 2x weight at v_ref, use damping
+            let use_damping = drag_weight_ratio > 2.0;
+
+            if use_damping {
+                // For extreme drag cases (ping pong ball, leaf, feather):
+                // Use Rapier's linear damping for numerical stability
+                // Approximate: linear_damping ≈ (0.5 * rho * cd * area * v_ref) / mass
+                let damping_coefficient = (0.5 * density * cd * area * v_ref) / m;
+                let clamped_damping = damping_coefficient.min(1.0); // Cap at 1.0 for safety
+
+                // Update the body's damping
+                if let Some(body) = self.rigid_body_set.get_mut(body_handle) {
+                    body.set_linear_damping(clamped_damping);
+                    eprintln!("INFO: Body '{}' has extreme drag (ratio={:.2}), using damping={:.4} instead of force-based drag",
+                        self.body_names.get(&body_handle).unwrap_or(&"unknown".to_string()),
+                        drag_weight_ratio, clamped_damping);
+                }
+
+                // Still store drag properties but mark as damping-only
+                self.body_drag_properties.insert(body_handle, DragProperties {
+                    drag_coefficient: cd,
+                    drag_area: area,
+                    drag_axis_ratios: ratios,
+                    fluid_density: density,
+                    use_damping_only: true,
+                });
+            } else {
+                // Normal drag case: use force-based orientation-dependent drag
+                self.body_drag_properties.insert(body_handle, DragProperties {
+                    drag_coefficient: cd,
+                    drag_area: area,
+                    drag_axis_ratios: ratios,
+                    fluid_density: density,
+                    use_damping_only: false,
+                });
+            }
+        }
     }
 
     pub fn step(&mut self, steps: usize, dt: Option<f32>) {
@@ -223,6 +295,9 @@ impl Simulation {
         }
 
         for _ in 0..steps {
+            // Apply orientation-dependent drag forces before physics step (Phase 2)
+            self.apply_orientation_dependent_drag();
+
             self.physics_pipeline.step(
                 &self.gravity,
                 &self.integration_parameters,
@@ -302,6 +377,129 @@ impl Simulation {
         }
 
         result
+    }
+
+    /// Apply orientation-dependent drag forces (Phase 2)
+    fn apply_orientation_dependent_drag(&mut self) {
+        // Iterate through all bodies with drag properties
+        for (body_handle, drag_props) in &self.body_drag_properties {
+            // Skip bodies using damping-only mode (extreme drag cases)
+            if drag_props.use_damping_only {
+                continue;
+            }
+
+            if let Some(body) = self.rigid_body_set.get_mut(*body_handle) {
+                // Only apply drag to dynamic bodies
+                if !body.is_dynamic() {
+                    continue;
+                }
+
+                // Get velocity in world space
+                let velocity_world = *body.linvel();
+                let speed = velocity_world.magnitude();
+
+                // Skip if velocity is negligible
+                if speed < 1e-6 {
+                    continue;
+                }
+
+                // Get body orientation (rotation matrix)
+                let rotation = body.rotation();
+
+                // Transform velocity to body-local coordinates
+                // This gives us the velocity components along the body's x, y, z axes
+                let velocity_local = rotation.inverse_transform_vector(&velocity_world);
+
+                // Calculate drag coefficient modulated by orientation
+                // drag_axis_ratios: [x_ratio, y_ratio, z_ratio]
+                // Higher ratio = more drag along that axis
+                // For streamlined object: [1.0, 0.2, 1.0] means low drag along Y
+
+                let vx = velocity_local.x;
+                let vy = velocity_local.y;
+                let vz = velocity_local.z;
+
+                // Calculate the fraction of velocity² along each axis
+                let speed_squared = speed * speed;
+                if speed_squared < 1e-12 {
+                    continue; // Skip if essentially stationary
+                }
+
+                let vx_frac = (vx * vx) / speed_squared;
+                let vy_frac = (vy * vy) / speed_squared;
+                let vz_frac = (vz * vz) / speed_squared;
+
+                // Weighted drag based on velocity direction and axis ratios
+                // drag_axis_ratios modulate how drag varies with orientation
+                // For isotropic drag [1,1,1], drag_factor = 1.0
+                // For streamlined [1, 0.2, 1], drag is reduced when moving along Y
+                let mut drag_factor = vx_frac * drag_props.drag_axis_ratios[0] +
+                                      vy_frac * drag_props.drag_axis_ratios[1] +
+                                      vz_frac * drag_props.drag_axis_ratios[2];
+
+                // Safety clamp: ensure drag_factor is always positive and reasonable
+                if drag_factor < 0.0 {
+                    drag_factor = 0.0;
+                }
+                let drag_factor_max = 10.0;
+                if drag_factor > drag_factor_max {
+                    drag_factor = drag_factor_max;
+                }
+
+                // Calculate drag force magnitude: F = 0.5 * ρ * Cd * A * v²
+                // The drag_factor modulates the effective drag based on orientation
+                let drag_magnitude = 0.5 * drag_props.fluid_density *
+                    drag_props.drag_coefficient * drag_props.drag_area *
+                    speed_squared * drag_factor;
+
+                // Drag direction: strictly opposite to velocity
+                // Normalize velocity to get unit vector opposite to motion
+                let drag_direction = -velocity_world / speed;
+
+                // Compute drag force vector
+                let mut drag_force_vec = drag_direction * drag_magnitude;
+
+                // Clamp drag force to prevent reversing velocity direction
+                // Maximum impulse that can be applied without reversing in one timestep
+                let mass = body.mass();
+                let dt = self.integration_parameters.dt;
+
+                // Momentum: p = m * v
+                let momentum = mass * speed;
+
+                // Maximum impulse per timestep (use safety factor of 0.8 to avoid reversal)
+                let max_impulse = 0.8 * momentum;
+
+                // Impulse that will be applied: J = F * dt
+                let impulse_magnitude = drag_magnitude * dt;
+
+                if impulse_magnitude > max_impulse {
+                    // Scale down the force to limit impulse
+                    drag_force_vec *= max_impulse / impulse_magnitude;
+                }
+
+                // Safety check: drag must always do negative work (oppose motion)
+                // If dot(F_drag, v) > 0, drag would accelerate instead of decelerate
+                let dot = drag_force_vec.dot(&velocity_world);
+                if dot > 0.0 {
+                    // This should never happen with correct implementation
+                    // If it does, flip the force to ensure it opposes motion
+                    eprintln!("WARNING: drag force dot product positive! dot={}, flipping force", dot);
+                    drag_force_vec = -drag_force_vec;
+                }
+
+                // Debug logging for ping pong ball issue
+                if speed > 15.0 {
+                    eprintln!("DEBUG: v=[{:.2}, {:.2}, {:.2}] speed={:.2} F_drag=[{:.2}, {:.2}, {:.2}] mag={:.4} dot={:.4}",
+                        velocity_world.x, velocity_world.y, velocity_world.z, speed,
+                        drag_force_vec.x, drag_force_vec.y, drag_force_vec.z,
+                        drag_magnitude, dot);
+                }
+
+                // Apply force to body
+                body.add_force(drag_force_vec, true);
+            }
+        }
     }
 
     /// Detect contact events (Phase 1.2)

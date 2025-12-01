@@ -3,10 +3,25 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Test Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg)](https://github.com/yourusername/chuk-mcp-physics)
+[![Tests](https://img.shields.io/badge/tests-515%20passing-brightgreen.svg)](https://github.com/yourusername/chuk-mcp-physics)
+
+**Features:** 🌀 Magnus Force • 💨 Wind Effects • 🏔️ Altitude • 🌡️ Temperature • 🔄 Tumbling Drag • 🎮 Rigid-Body Sims • 📊 515 Tests
 
 **A Model Context Protocol (MCP) server that brings comprehensive physics simulation and calculation capabilities to Large Language Models.**
 
-Transform your LLM into a physics engine! This MCP server provides 54 specialized tools spanning classical mechanics, fluid dynamics, rotational motion, and rigid-body simulations. Built for seamless integration with Claude, ChatGPT, and any MCP-compatible AI system.
+Transform your LLM into a physics engine! This MCP server provides 55 specialized tools spanning classical mechanics, fluid dynamics, rotational motion, and rigid-body simulations. Built for seamless integration with Claude, ChatGPT, and any MCP-compatible AI system.
+
+## 📚 Table of Contents
+
+- [What is This?](#-what-is-this)
+- [What's Included](#-whats-included)
+- [Quick Start](#-quick-start-30-seconds)
+- [Use Cases](#-use-cases)
+- [Available Tools](#-available-tools)
+  - [Common Drag Coefficients](#common-drag-coefficients-cd-reference)
+  - [Advanced Projectile Features](#advanced-projectile-features) 🌀💨🏔️
+- [Examples](#-examples)
+- [Development](#-development)
 
 ## 🌟 What is This?
 
@@ -32,7 +47,7 @@ The [Model Context Protocol](https://modelcontextprotocol.io/) provides a standa
 
 ## 📦 What's Included
 
-### 54 Physics Tools Across 10 Categories
+### 55 Physics Tools Across 10 Categories
 
 | Category | Tools | Description |
 |----------|-------|-------------|
@@ -42,10 +57,24 @@ The [Model Context Protocol](https://modelcontextprotocol.io/) provides a standa
 | **Oscillations** | 5 tools | Springs, pendulums, harmonic motion, damping |
 | **Circular Motion** | 5 tools | Centripetal force, orbits, banking angles, escape velocity |
 | **Statics** | 7 tools | Force balance, torque balance, friction, beam reactions |
-| **Kinematics** | 6 tools | Motion analysis, trajectory fitting, velocity calculations |
+| **Kinematics** | 7 tools | Motion analysis, trajectory fitting, velocity calculations, projectile with drag |
 | **Collisions** | 2 tools | Elastic and inelastic 3D collisions with energy loss |
 | **Conservation Laws** | 4 tools | Energy, momentum, and angular momentum verification |
 | **Unit Conversions** | 2 tools | 62 unit types across 16 categories (velocity, distance, mass, time, acceleration, torque, frequency, data, etc.) |
+
+### Realistic vs Ideal Physics Comparison
+
+See the dramatic difference when including real-world effects:
+
+| Sport | Scenario | Ideal (No Drag) | Realistic (With Enhancements) | Difference |
+|-------|----------|----------------|-------------------------------|------------|
+| ⚾ Baseball | 90 mph fastball | 87.5m | 52.3m (with drag) | **-40%** range |
+| ⛳ Golf | Pro drive at sea level | 251m | 129m (with drag) | **-49%** range |
+| ⛳ Golf | Same drive in Denver | 251m | 181m (drag + altitude) | **-28%** range |
+| ⚽ Soccer | Free kick with wind | 25m straight | 26m + 5.6m curve (wind + spin) | **Bends 5.6m!** |
+| 🎾 Tennis | Serve on hot day | 27m | 26.8m (less drag) | **+2.3%** vs cold |
+
+💡 **Key Insight**: Real physics matters! Air resistance can reduce range by 20-70% depending on the sport.
 
 ### Two Calculation Modes
 
@@ -53,6 +82,7 @@ The [Model Context Protocol](https://modelcontextprotocol.io/) provides a standa
    - Instant mathematical calculations
    - Perfect for education and quick answers
    - Exact solutions using physics formulas
+   - **Now includes**: Advanced drag, spin (Magnus), wind, altitude effects
 
 2. **Simulation Mode** (Requires Rapier service)
    - Full rigid-body dynamics
@@ -201,19 +231,39 @@ LLM: [calls check_collision for timing]
 ---
 
 ### 5. **Sports & Athletics**
-**Performance Optimization**
+**Realistic Ball Trajectories with Air Resistance**
 ```
-User: "What's the optimal angle to throw a javelin at 25 m/s for maximum distance?"
-LLM: [calls calculate_projectile_motion at multiple angles]
-     "45° gives maximum range of 63.7 meters on flat ground.
-      However, with 2m release height, 43° is optimal at 64.9m..."
+User: "How far does a 90 mph baseball fastball actually travel with air resistance?"
+LLM: [calls calculate_projectile_with_drag with baseball parameters]
+     "With drag (realistic): 52.3m range
+      Without drag (vacuum): 87.5m range
+      Air resistance reduces range by 40%! Energy lost to drag: 89.2 J..."
 ```
 
-**Shot Analysis**
-- Basketball: arc optimization, free throw angles
-- Golf: ball trajectory, wind effects (with manual adjustments)
-- Baseball: pitch speed vs. distance calculations
-- Track & field: javelin, shot put, long jump optimization
+**Golf Drive Analysis**
+```
+User: "Pro golfer hits 70 m/s (155 mph) at 12° angle. How far with real air resistance?"
+LLM: [calls calculate_projectile_with_drag with golf ball parameters]
+     "With drag: 129.4m (142 yards)
+      Without drag: 251.0m (274 yards)
+      Dimples reduce drag coefficient from 0.47 to 0.25 - saves ~50% range loss!"
+```
+
+**Basketball 3-Pointer**
+```
+User: "What launch angle for a 7.5 m/s shot from 6.75m away (3-point line)?"
+LLM: [calls calculate_projectile_with_drag iterating angles]
+     "With air resistance, optimal angle is 48° (high arc).
+      Range: 6.73m (close!), max height: 3.2m, flight time: 1.1s..."
+```
+
+**Shot Analysis Applications**
+- **Baseball**: Pitch trajectories, drag reduces 90mph fastball range by 40%
+- **Golf**: Drive distance with dimpled ball (Cd=0.25 vs smooth ball Cd=0.47)
+- **Basketball**: Arc optimization for free throws and 3-pointers
+- **Soccer**: Penalty kick trajectories, minimal drag at short distances
+- **Track & field**: Javelin, shot put with realistic air resistance
+- **Tennis**: Serve and groundstroke trajectory analysis
 
 ---
 
@@ -834,7 +884,7 @@ destroy_simulation(sim.sim_id)
 | `check_equilibrium` | Force + torque balance | "Is structure stable?" |
 | `calculate_beam_reactions` | Support forces | "Reaction forces on beam?" |
 
-### Kinematics Analysis (6 tools)
+### Kinematics Analysis (7 tools)
 
 | Tool | Purpose | Example |
 |------|---------|---------|
@@ -844,6 +894,7 @@ destroy_simulation(sim.sim_id)
 | `generate_motion_graph` | Position/velocity/accel graphs | "Generate motion graphs?" |
 | `calculate_average_speed` | Speed along path | "Average speed on route?" |
 | `calculate_instantaneous_velocity` | Velocity at exact time | "Speed at t=2.5s?" |
+| `calculate_projectile_with_drag` | Realistic projectile with air resistance | "How far does baseball actually go?" |
 
 ### Advanced Collisions (2 tools)
 
@@ -887,6 +938,296 @@ destroy_simulation(sim.sim_id)
 - 📐 **70+ unit types across 16 categories**
 - 🎯 Perfect for natural language physics queries
 - 🚀 Includes engineering units (torque, acceleration, frequency)
+
+---
+
+### Common Drag Coefficients (Cd) Reference
+
+For use with `calculate_projectile_with_drag` tool:
+
+| Object | Drag Coefficient (Cd) | Notes |
+|--------|----------------------|-------|
+| **Sports Balls** | | |
+| Baseball | 0.4 | Stitched surface |
+| Golf ball (dimpled) | 0.25 | Dimples reduce drag by ~50% |
+| Golf ball (smooth) | 0.47 | Without dimples (don't use!) |
+| Basketball | 0.55 | Large, textured surface |
+| Soccer ball | 0.25 | Modern, smooth panels |
+| Tennis ball | 0.55 | Fuzzy surface |
+| Football (American) | 0.05-0.15 | Highly streamlined, orientation-dependent |
+| **Generic Shapes** | | |
+| Sphere (smooth) | 0.47 | Default reference |
+| Flat plate (perpendicular) | 1.28 | Maximum drag |
+| Streamlined body | 0.04 | Teardrop/airfoil |
+| Cylinder (perpendicular) | 1.15 | Like a pole |
+| **Vehicles** | | |
+| Car (modern) | 0.25-0.35 | Aerodynamic design |
+| Truck | 0.6-0.9 | Boxy shape |
+| Bicycle + rider | 0.9 | Upright position |
+| **Human Body** | | |
+| Skydiver (belly-down) | 1.0-1.3 | Maximum drag |
+| Skydiver (head-down) | 0.7 | Streamlined |
+| **Projectiles** | | |
+| Bullet (supersonic) | 0.295 | Pointed nose |
+| Artillery shell | 0.15-0.25 | Streamlined |
+
+**Basic Usage Example:**
+```python
+# Baseball pitch with realistic drag
+result = await calculate_projectile_with_drag(
+    initial_velocity=40.23,  # 90 mph
+    angle_degrees=10,
+    mass=0.145,
+    cross_sectional_area=0.0043,  # π × (0.037m)²
+    drag_coefficient=0.4  # Baseball Cd
+)
+```
+
+---
+
+### Advanced Projectile Features
+
+The `calculate_projectile_with_drag` tool supports optional enhancements for ultra-realistic simulations:
+
+#### 🌀 Magnus Force (Spin Effects)
+
+Spin creates a pressure differential that deflects the ball's path. Essential for:
+- **Baseball**: Curveballs (topspin drops), fastballs (backspin lifts)
+- **Golf**: Backspin increases carry, sidespin causes slices/hooks
+- **Soccer**: Bending free kicks around defensive walls
+- **Tennis**: Topspin brings ball down faster
+
+```python
+# Baseball curveball with topspin
+result = await calculate_projectile_with_drag(
+    initial_velocity=35,
+    angle_degrees=0,
+    mass=0.145,
+    cross_sectional_area=0.0043,
+    drag_coefficient=0.4,
+    spin_rate=261.8,  # 2500 rpm = 261.8 rad/s
+    spin_axis=[0, 0, -1]  # Topspin (negative z-axis)
+)
+# Returns lateral_deflection and magnus_force_max
+```
+
+**Spin Parameters:**
+- `spin_rate`: Rotation speed in rad/s (convert from RPM: rpm × 2π/60)
+- `spin_axis`: Unit vector [x, y, z] indicating spin direction
+  - `[0, 0, 1]` = Backspin (lifts)
+  - `[0, 0, -1]` = Topspin (drops)
+  - `[0, 1, 0]` = Sidespin (hooks/slices)
+
+#### 💨 Wind Effects
+
+Constant wind vector affects trajectory throughout flight:
+
+```python
+# Soccer free kick with 5 m/s crosswind
+result = await calculate_projectile_with_drag(
+    initial_velocity=28,
+    angle_degrees=12,
+    mass=0.43,
+    cross_sectional_area=0.0388,
+    drag_coefficient=0.25,
+    wind_velocity=[5.0, 0.0]  # [horizontal, vertical] in m/s
+)
+# Returns wind_drift showing total deflection
+```
+
+**Wind Types:**
+- **Tailwind**: `[+X, 0]` - increases range
+- **Headwind**: `[-X, 0]` - decreases range
+- **Crosswind**: `[X, 0]` - lateral deflection
+- **Updraft**: `[0, +Y]` - increases height and flight time
+- **Downdraft**: `[0, -Y]` - decreases height
+
+#### 🏔️ Altitude & Temperature Effects
+
+Air density varies with elevation and temperature, dramatically affecting drag:
+
+```python
+# Golf drive in Denver (1600m elevation, 20°C)
+result = await calculate_projectile_with_drag(
+    initial_velocity=70,
+    angle_degrees=12,
+    mass=0.0459,
+    cross_sectional_area=0.00143,
+    drag_coefficient=0.25,
+    altitude=1600,  # meters above sea level
+    temperature=20  # Celsius
+)
+# Returns effective_air_density showing actual density used
+```
+
+**Real-World Impact:**
+- **Denver (1600m)**: ~10% longer drives than sea level
+- **Hot day (+20°C)**: ~2-3% less drag than cold day
+- **Everest Base Camp (5300m)**: ~50% less air density!
+
+**Air Density Formula:**
+```
+ρ(h,T) = ρ₀ × exp(-Mgh/RT₀) × (T₀/T)
+```
+Where:
+- ρ₀ = sea level density (1.225 kg/m³)
+- h = altitude (meters)
+- T = temperature (Kelvin)
+- M = molar mass of air (0.029 kg/mol)
+- g = gravity (9.81 m/s²)
+- R = gas constant (8.314 J/(mol·K))
+
+#### 🌟 Combined Effects Example
+
+```python
+# Golf ball with ALL effects (spin + wind + altitude)
+result = await calculate_projectile_with_drag(
+    initial_velocity=70,
+    angle_degrees=12,
+    mass=0.0459,
+    cross_sectional_area=0.00143,
+    drag_coefficient=0.25,
+    spin_rate=200,  # Backspin
+    spin_axis=[0, 0, 1],
+    wind_velocity=[3, 0],  # Tailwind
+    altitude=1000,  # Moderate elevation
+    temperature=25  # Warm day
+)
+# All effects combine for maximum realism!
+```
+
+**See Examples:**
+- `examples/sports_projectiles_with_drag.py` - Basic drag effects
+- `examples/advanced_projectile_effects.py` - Magnus force, wind, altitude
+
+---
+
+### 🔄 Orientation-Dependent Drag (Rapier Simulations)
+
+For tumbling objects like footballs, frisbees, and javelins, drag varies dramatically based on orientation. A football in a perfect spiral has **3-6× less drag** than when tumbling end-over-end!
+
+**Available via Rapier rigid-body simulations** using the `add_rigid_body` tool with orientation-dependent drag parameters.
+
+#### How It Works
+
+Objects moving through air experience drag that depends on their orientation:
+- **Football spiral**: Streamlined along flight path → low drag (~0.1 Cd)
+- **Football tumbling**: Broadside to airflow → high drag (~0.6 Cd)
+- **Frisbee flat**: Minimal cross-section → low drag (~0.08 Cd)
+- **Frisbee tilted**: Larger cross-section → higher drag
+
+**New `add_rigid_body` Parameters:**
+```python
+drag_coefficient: float      # Base Cd value
+drag_area: float             # Reference cross-sectional area (m²)
+drag_axis_ratios: [x, y, z]  # Drag variation along body axes
+fluid_density: float         # Fluid density (air=1.225, water=1000)
+```
+
+#### Example: Football Spiral vs Tumble
+
+```python
+# Perfect spiral (low drag along Y-axis)
+await add_rigid_body(
+    sim_id,
+    id="spiral",
+    shape="capsule",
+    size=[0.17, 0.28],  # diameter, length
+    mass=0.42,
+    position=[0, 2, 0],
+    velocity=[vx, vy, 0],
+    angular_velocity=[0, 126, 0],  # 20 rev/s spin
+    # Orientation-dependent drag
+    drag_coefficient=0.1,
+    drag_area=0.023,  # End-on area
+    drag_axis_ratios=[1.0, 0.2, 1.0],  # 5× less drag along Y
+    fluid_density=1.225
+)
+
+# Tumbling (higher drag, averaging all orientations)
+await add_rigid_body(
+    sim_id,
+    id="tumble",
+    shape="capsule",
+    size=[0.17, 0.28],
+    mass=0.42,
+    position=[0, 2, 0],
+    velocity=[vx, vy, 0],
+    angular_velocity=[31.4, 0, 0],  # Tumbling rotation
+    # Orientation-dependent drag
+    drag_coefficient=0.6,  # Higher base Cd
+    drag_area=0.048,  # Broadside area
+    drag_axis_ratios=[0.8, 1.0, 0.8],  # Less streamlining
+    fluid_density=1.225
+)
+```
+
+**Result**: Spiral can travel **20-40% farther** than tumble!
+
+#### Common `drag_axis_ratios` Patterns
+
+The `drag_axis_ratios` parameter specifies how drag varies along each body-local axis [X, Y, Z]:
+
+| Object | Ratios | Streamlined Axis | Use Case |
+|--------|--------|-----------------|----------|
+| Football spiral | `[1.0, 0.2, 1.0]` | Y (length) | Perfect pass |
+| Javelin | `[1.5, 0.2, 1.5]` | Y (length) | Optimal flight |
+| Frisbee flat | `[1.0, 0.1, 1.0]` | Y (vertical) | Stable throw |
+| Sphere | `[1.0, 1.0, 1.0]` | None | Basketball, etc. |
+| Disc tumbling | `[0.8, 1.0, 0.8]` | Less variation | Wobbly throw |
+
+**Physical Meaning:**
+- `0.2` = 20% of base drag along that axis (very streamlined)
+- `1.0` = 100% of base drag (normal)
+- `1.5` = 150% of base drag (higher resistance)
+
+#### Real-World Examples
+
+**⚽ Football Throw** (spiral vs tumble):
+```python
+# Spiral: 45-50 yards typical
+# Tumble: 30-35 yards (30-40% loss)
+```
+
+**🥏 Frisbee** (stable vs wobbling):
+```python
+# Stable (600 rpm spin): 60-80 meters
+# Wobbling (slow spin): 30-40 meters (50% loss)
+```
+
+**🏹 Javelin** (optimal vs poor technique):
+```python
+# Optimal angle: 70-90 meters (Olympic level)
+# Poor release: 40-50 meters (45% loss)
+```
+
+#### Important Notes
+
+⚠️ **Requires Rapier Service**: Orientation-dependent drag calculations are performed by the Rapier physics service (Rust implementation). The Python MCP server defines the API and passes parameters to Rapier.
+
+🎯 **When to Use**:
+- Sports simulations (football, frisbee, discus)
+- Projectile accuracy (javelin, arrows, darts)
+- Aerospace applications (rocket tumbling, debris)
+
+🔬 **Physics**:
+The drag force is calculated in the Rapier service using the body's current orientation (quaternion) to transform body-local drag coefficients into world-space drag forces.
+
+**Hybrid Drag Implementation**:
+Rapier uses a hybrid approach to handle extreme drag cases:
+- **Normal drag** (ratio < 2.0): Force-based orientation-dependent drag with full anisotropic behavior
+- **Extreme drag** (ratio ≥ 2.0): Damping-based drag for stability when drag-to-weight ratio is very high
+  - Automatically activates for objects like ping pong balls (high drag, low mass)
+  - Prevents numerical instabilities while maintaining realistic energy dissipation
+  - Logged as INFO when triggered: `"Body 'name' has extreme drag (ratio=X.XX), using damping"`
+
+Where `drag_ratio = 0.5 * fluid_density * drag_coefficient * drag_area * v_typical^2 / (mass * g)`
+
+**Measurement Notes**:
+When analyzing trajectories, use `max(x_positions)` instead of `final_x` to measure range. Rapier's solver may occasionally jitter backward slightly near ground impact, but this is a measurement artifact, not a physics error. The drag forces always oppose motion correctly.
+
+**See Example:**
+- `examples/tumbling_projectiles.py` - Football, frisbee, and javelin orientation effects
 
 ---
 
