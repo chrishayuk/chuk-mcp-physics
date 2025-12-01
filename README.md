@@ -6,7 +6,7 @@
 
 **A Model Context Protocol (MCP) server that brings comprehensive physics simulation and calculation capabilities to Large Language Models.**
 
-Transform your LLM into a physics engine! This MCP server provides 52+ specialized tools spanning classical mechanics, fluid dynamics, rotational motion, and rigid-body simulations. Built for seamless integration with Claude, ChatGPT, and any MCP-compatible AI system.
+Transform your LLM into a physics engine! This MCP server provides 54 specialized tools spanning classical mechanics, fluid dynamics, rotational motion, and rigid-body simulations. Built for seamless integration with Claude, ChatGPT, and any MCP-compatible AI system.
 
 ## 🌟 What is This?
 
@@ -28,10 +28,11 @@ The [Model Context Protocol](https://modelcontextprotocol.io/) provides a standa
 - 🌊 **Fluid dynamics** (drag, buoyancy, lift, Bernoulli)
 - 🔄 **Rotational mechanics** (torque, angular momentum, gyroscopes)
 - ⚖️ **Static analysis** (equilibrium, beam reactions, friction)
+- 🔄 **Unit conversions** (62 unit types: velocity, distance, mass, time, acceleration, torque, frequency, data size, and more)
 
 ## 📦 What's Included
 
-### 52 Physics Tools Across 9 Categories
+### 54 Physics Tools Across 10 Categories
 
 | Category | Tools | Description |
 |----------|-------|-------------|
@@ -44,6 +45,7 @@ The [Model Context Protocol](https://modelcontextprotocol.io/) provides a standa
 | **Kinematics** | 6 tools | Motion analysis, trajectory fitting, velocity calculations |
 | **Collisions** | 2 tools | Elastic and inelastic 3D collisions with energy loss |
 | **Conservation Laws** | 4 tools | Energy, momentum, and angular momentum verification |
+| **Unit Conversions** | 2 tools | 62 unit types across 16 categories (velocity, distance, mass, time, acceleration, torque, frequency, data, etc.) |
 
 ### Two Calculation Modes
 
@@ -859,11 +861,38 @@ destroy_simulation(sim.sim_id)
 | `check_angular_momentum_conservation` | Verify L conserved | "Is rotation valid?" |
 | `track_energy_dissipation` | Energy loss over time | "Where did energy go?" |
 
+### Unit Conversions (2 tools)
+
+| Tool | Purpose | Supported Units |
+|------|---------|-----------------|
+| `convert_unit` | Convert between units | **Velocity**: m/s, km/h, mph, ft/s, knots<br/>**Distance**: m, km, mi, ft, yd, in<br/>**Mass**: kg, g, lb, oz<br/>**Force**: N, kN, lbf<br/>**Energy**: J, kJ, cal, BTU, kWh<br/>**Power**: W, kW, hp<br/>**Temperature**: K, C, F<br/>**Angle**: rad, deg<br/>**Pressure**: Pa, kPa, bar, psi, atm<br/>**Area**: m², km², ft², acre<br/>**Volume**: m³, L, gal, ft³<br/>**Time**: s, min, hr, day<br/>**Acceleration**: m/s², g, ft/s²<br/>**Torque**: N·m, lb·ft, lb·in<br/>**Frequency**: Hz, kHz, MHz, GHz<br/>**Data Size**: B, KB, MB, GB |
+| `list_unit_conversions` | Get all supported units | Returns complete list of conversions |
+
+**Examples:**
+```python
+# Natural language queries work perfectly
+"Convert 60 mph to m/s"  # → 26.82 m/s
+"How fast is 100 km/h in mph?"  # → 62.14 mph
+"What's 10 kg in pounds?"  # → 22.05 lb
+"Convert 100 feet to meters"  # → 30.48 m
+"What's 98.6°F in Celsius?"  # → 37°C
+"Convert 3 g-force to m/s²"  # → 29.42 m/s²
+"What's 300 N·m in lb·ft?"  # → 221.27 lb·ft
+"Convert 1 hour to seconds"  # → 3600 s
+```
+
+**Features:**
+- ⚡ Instant conversions (no external service needed)
+- 🔄 Automatic indirect conversions (e.g., mph → km/h via m/s)
+- 📐 **70+ unit types across 16 categories**
+- 🎯 Perfect for natural language physics queries
+- 🚀 Includes engineering units (torque, acceleration, frequency)
+
 ---
 
 ## ✨ Phase 1 Features (Production Ready)
 
-All Phase 1 features are **complete, tested (94% coverage), and deployed** to production!
+All Phase 1 features are **complete, tested (98% coverage), and deployed** to production!
 
 ### Phase 1.1: Bounce Detection 🏀
 

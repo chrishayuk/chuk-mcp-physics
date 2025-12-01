@@ -46,11 +46,13 @@ from .tools import (
     fluid as fluid_tools,
     kinematics_tools,
     statics,
+    convert_units as unit_conversion_tools,
 )
 
 # Silence unused import warnings - these imports register @tool decorated functions
 _ = (
     basic,
+    unit_conversion_tools,
     rotational,
     oscillations,
     circular_motion,
