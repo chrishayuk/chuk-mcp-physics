@@ -11,7 +11,7 @@ This demonstrates the new fluid dynamics capabilities:
 import asyncio
 import math
 
-from chuk_mcp_physics.server import (
+from chuk_mcp_physics.tools.fluid import (
     calculate_drag_force,
     calculate_buoyancy,
     calculate_terminal_velocity,

@@ -1,7 +1,7 @@
 """Tests for MCP server tools."""
 
 import pytest
-from chuk_mcp_physics.server import (
+from chuk_mcp_physics.tools.basic import (
     calculate_projectile_motion,
     check_collision,
     calculate_force,

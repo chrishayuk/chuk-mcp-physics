@@ -4,19 +4,52 @@ This directory contains example scripts demonstrating various use cases for the 
 
 ## Running Examples
 
-All examples use the **analytic provider** (no external dependencies required):
+### Phase 1 Examples (Core Physics)
+
+Examples 00-04 use the **analytic provider** (no external dependencies):
 
 ```bash
-# Run individual examples
+# Core physics examples
+python examples/00_quick_start.py
 python examples/01_simple_projectile.py
 python examples/02_collision_detection.py
 python examples/03_force_energy_momentum.py
 python examples/04_r3f_visualization.py
 ```
 
+Examples 05-10 require the **Rapier service**:
+
+```bash
+# Set up Rapier service
+export RAPIER_SERVICE_URL=https://rapier.chukai.io
+
+# Simulation examples
+python examples/05_rapier_simulation.py
+python examples/06_bounce_detection.py
+python examples/07_contact_events.py
+python examples/08_pendulum.py
+python examples/09_phase1_complete.py
+python examples/10_fluid_dynamics.py
+```
+
+### Phase 2 Examples (Advanced Physics)
+
+Examples 11-15 use the **analytic provider** (no external dependencies):
+
+```bash
+# Advanced physics examples
+python examples/11_rotational_dynamics.py
+python examples/12_oscillations.py
+python examples/13_circular_motion.py
+python examples/14_statics.py
+python examples/15_kinematics_analysis.py
+```
+
 ## Examples Overview
 
-### 1. Simple Projectile Motion (`01_simple_projectile.py`)
+### Phase 1: Core Physics (Examples 00-10)
+
+#### 1. Simple Projectile Motion (`01_simple_projectile.py`)
 
 Demonstrates basic projectile motion calculations:
 - **Cannonball trajectory** at 45° (maximum range)
@@ -154,11 +187,141 @@ RESULTS:
 
 ---
 
+---
+
+### Phase 2: Advanced Physics (Examples 11-15)
+
+#### 11. Rotational Dynamics (`11_rotational_dynamics.py`)
+
+Rotational motion and angular mechanics:
+- **Torque calculations** - Wrenches, forces at distance
+- **Moment of inertia** - Various shapes (disk, sphere, rod)
+- **Angular momentum** - Conservation (figure skater example)
+- **Rotational KE** - Flywheel energy storage
+- **Angular acceleration** - Motor startup
+- **Real-world** - Bicycle wheel gyroscopic effects
+
+**Output:**
+- Torque magnitudes and directions
+- Moment of inertia for different shapes
+- Angular momentum conservation demonstration
+- Energy storage in rotating systems
+
+**Use cases:**
+- Mechanical engineering
+- Robotics (joint torques)
+- Sports science
+- Aerospace (satellite attitude)
+
+---
+
+#### 12. Oscillations (`12_oscillations.py`)
+
+Harmonic motion and spring systems:
+- **Hooke's law** - Spring forces and energy
+- **Spring-mass period** - Natural frequencies
+- **Simple harmonic motion** - Position vs. time
+- **Damped oscillations** - Underdamped, critical, overdamped
+- **Pendulum motion** - Period calculations
+- **Energy analysis** - KE ↔ PE oscillation
+
+**Output:**
+- Spring forces and potential energy
+- Oscillation periods and frequencies
+- Damping regime classification
+- Energy transfer visualization
+
+**Use cases:**
+- Suspension design
+- Seismology
+- Clock mechanisms
+- Vibration isolation
+
+---
+
+#### 13. Circular Motion (`13_circular_motion.py`)
+
+Circular motion and orbital mechanics:
+- **Centripetal force** - Car on curved road
+- **Orbital mechanics** - ISS orbit analysis
+- **Banking angles** - Highway curve design
+- **Escape velocity** - Various celestial bodies
+- **Geostationary orbits** - 24-hour satellites
+
+**Output:**
+- Required centripetal forces
+- Orbital periods and velocities
+- Optimal banking angles for speeds
+- Escape velocities for planets
+
+**Use cases:**
+- Space mission planning
+- Highway design
+- Astrophysics
+- Amusement park rides
+
+---
+
+#### 14. Statics & Equilibrium (`14_statics.py`)
+
+Static equilibrium and structural analysis:
+- **Force balance** - Bridge supports
+- **Torque balance** - Seesaws and levers
+- **Center of mass** - Multi-body systems
+- **Static friction** - Will it slide?
+- **Normal forces** - Inclined planes
+- **Complete equilibrium** - Force + torque
+- **Beam reactions** - Simply supported beams
+
+**Output:**
+- Force and torque equilibrium checks
+- Center of mass locations
+- Friction limits and slip predictions
+- Support reactions for beams
+
+**Use cases:**
+- Structural engineering
+- Architecture
+- Mechanical design
+- Safety analysis
+
+---
+
+#### 15. Kinematics Analysis (`15_kinematics_analysis.py`)
+
+Motion data analysis and trajectory processing:
+- **Acceleration from position** - Numerical differentiation
+- **Jerk analysis** - Motion smoothness
+- **Trajectory fitting** - Polynomial regression
+- **Motion graphs** - Position/velocity/acceleration
+- **Average speed** - Path length vs. displacement
+- **Instantaneous velocity** - With interpolation
+
+**Output:**
+- Derived velocities and accelerations
+- Jerk magnitudes (smoothness metrics)
+- Fitted trajectory equations
+- Graph data for visualization
+- Speed and velocity calculations
+
+**Use cases:**
+- Motion capture analysis
+- Robotics trajectory planning
+- Sports biomechanics
+- Autonomous vehicle testing
+
+---
+
 ## Extending Examples
 
-These examples use the analytic provider directly. For **simulation-based examples** (Rapier), see:
+All Phase 1 examples (00-10) use the analytic provider. For **simulation-based examples** (Rapier), see:
 - `05_rapier_simulation.py` (requires Rapier service)
-- `06_multi_body_system.py` (requires Rapier service)
+- `06_bounce_detection.py` (requires Rapier service)
+- `07_contact_events.py` (requires Rapier service)
+- `08_pendulum.py` (requires Rapier service)
+- `09_phase1_complete.py` (requires Rapier service)
+
+All Phase 2 examples (11-15) use the analytic provider (no external dependencies).
 
 ---
 
@@ -185,6 +348,69 @@ result = await provider.calculate_projectile_motion(request)
 - **Main README**: `../README.md` - Complete documentation
 - **Rapier Service**: `../RAPIER_SERVICE.md` - Simulation setup
 - **API Reference**: See tool docstrings in `../src/chuk_mcp_physics/server.py`
+
+---
+
+### 16. Casino Roulette Simulation (`16_roulette_simulation.py`) 🎰
+
+**🌟 SHOWCASE EXAMPLE - Complete Physics Engine Demonstration**
+
+A comprehensive casino roulette wheel simulation that demonstrates the full capabilities of the physics engine:
+
+**Features Demonstrated:**
+- **Spinning wheel** with rotational dynamics
+- **Ball launch** with tangential velocity
+- **Deflector bounces** (8 diamond obstacles)
+- **Pocket divisions** (37 numbered pockets - European roulette)
+- **Energy dissipation** through friction and damping
+- **Realistic settling** behavior
+- **Complete trajectory** recording with bounce detection
+- **Result determination** based on final ball position
+
+**Physics Concepts:**
+- Rotational motion (spinning wheel at 40-60 RPM)
+- Collision detection (ball hitting deflectors)
+- Friction (wheel, rim, and pocket surfaces)
+- Damping (air resistance, rotational friction)
+- Energy loss per bounce
+- Multi-body interactions (46+ bodies: wheel, rim, 8 deflectors, 37 pockets, ball)
+- Complex geometry (cylinders, spheres, boxes)
+
+**Output:**
+- Winning number (0-36) and color (RED/BLACK/GREEN)
+- Even/odd classification
+- High/low range (1-18 or 19-36)
+- Physics statistics (bounces, contacts, distance traveled)
+- Energy dissipation analysis
+- Full trajectory data for visualization
+
+**Use Cases:**
+- Game development (realistic casino simulations)
+- Physics education (complex system dynamics)
+- Visualization (3D casino table rendering)
+- Probability analysis (physics + statistics)
+- Engine capability demonstration
+
+**Requires:**
+- Rapier service
+- ~12 seconds simulation time
+- Multi-body physics support
+
+```bash
+export PHYSICS_PROVIDER=rapier
+export RAPIER_SERVICE_URL=https://rapier.chukai.io
+python examples/16_roulette_simulation.py
+```
+
+**Why This Example?**
+This is the perfect showcase for demonstrating what the physics engine can do:
+- ✅ Complex real-world scenario everyone understands
+- ✅ Combines multiple physics concepts (rotation, collision, friction, damping)
+- ✅ Visually impressive (46+ interacting bodies)
+- ✅ Realistic behavior (ball bounces, slows, settles)
+- ✅ Practical application (actual casino physics)
+- ✅ Generates quantifiable results (specific number outcome)
+- ✅ Ready for 3D visualization (full trajectory data)
 
 ---
 

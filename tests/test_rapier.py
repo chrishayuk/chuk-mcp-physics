@@ -281,3 +281,123 @@ class TestRapierSimulation:
 
             # Should not raise
             await rapier_provider.destroy_simulation("sim_123")
+
+    @pytest.mark.asyncio
+    async def test_calculate_potential_energy_delegate(self, rapier_provider):
+        """Test potential energy calculation delegates to analytic."""
+        result = await rapier_provider.calculate_potential_energy(
+            mass=10.0, height=5.0, gravity=9.81
+        )
+        assert result.potential_energy > 0
+
+    @pytest.mark.asyncio
+    async def test_calculate_work_power_delegate(self, rapier_provider):
+        """Test work/power calculation delegates to analytic."""
+        result = await rapier_provider.calculate_work_power(
+            force=[10.0, 0.0, 0.0], displacement=[5.0, 0.0, 0.0], time=2.0
+        )
+        assert result.work > 0
+
+    @pytest.mark.asyncio
+    async def test_calculate_elastic_collision_delegate(self, rapier_provider):
+        """Test elastic collision delegates to analytic."""
+        result = await rapier_provider.calculate_elastic_collision(
+            mass1=1.0, velocity1=10.0, mass2=1.0, velocity2=0.0
+        )
+        assert result.final_velocity1 is not None
+        assert result.final_velocity2 is not None
+
+    @pytest.mark.asyncio
+    async def test_record_trajectory_flat_format(self, rapier_provider):
+        """Test recording trajectory with flat format (no meta wrapper)."""
+        # Mock HTTP response in flat format
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "dt": 0.016,
+            "frames": [
+                {
+                    "time": 0.0,
+                    "position": [0.0, 0.0, 0.0],
+                    "orientation": [0.0, 0.0, 0.0, 1.0],
+                    "velocity": [0.0, 0.0, 0.0],
+                }
+            ],
+            "body_id": "test_body",
+            "total_time": 1.0,
+            "num_frames": 1,
+        }
+        mock_response.raise_for_status = MagicMock()
+
+        with patch("httpx.AsyncClient") as mock_client:
+            mock_context = AsyncMock()
+            mock_context.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
+            mock_client.return_value = mock_context
+
+            result = await rapier_provider.record_trajectory("sim_123", "test_body", steps=100)
+
+            assert result.dt == 0.016
+            assert result.meta.body_id == "rapier://sim_123/test_body"
+
+    @pytest.mark.asyncio
+    async def test_record_trajectory_with_contact_events(self, rapier_provider):
+        """Test recording trajectory with contact events."""
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "dt": 0.016,
+            "frames": [],
+            "meta": {
+                "body_id": "test_body",
+                "total_time": 0.0,
+                "num_frames": 0,
+            },
+            "contact_events": [
+                {
+                    "time": 0.5,
+                    "body_a": "body1",
+                    "body_b": "body2",
+                    "contact_point": [0.0, 0.0, 0.0],
+                    "normal": [0.0, 1.0, 0.0],
+                    "impulse_magnitude": 10.0,
+                    "relative_velocity": [1.0, 0.0, 0.0],
+                    "event_type": "started",
+                }
+            ],
+        }
+        mock_response.raise_for_status = MagicMock()
+
+        with patch("httpx.AsyncClient") as mock_client:
+            mock_context = AsyncMock()
+            mock_context.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
+            mock_client.return_value = mock_context
+
+            result = await rapier_provider.record_trajectory("sim_123", "test_body", steps=100)
+
+            assert len(result.contact_events) == 1
+            assert result.contact_events[0].time == 0.5
+
+    @pytest.mark.asyncio
+    async def test_add_joint(self, rapier_provider):
+        """Test adding a joint between bodies."""
+        from chuk_mcp_physics.models import JointDefinition
+
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"joint_id": "joint_123"}
+        mock_response.raise_for_status = MagicMock()
+
+        joint = JointDefinition(
+            id="test_joint",
+            joint_type="revolute",
+            body_a="body1",
+            body_b="body2",
+            anchor_a=[0.0, 0.0, 0.0],
+            anchor_b=[0.0, 0.0, 0.0],
+        )
+
+        with patch("httpx.AsyncClient") as mock_client:
+            mock_context = AsyncMock()
+            mock_context.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
+            mock_client.return_value = mock_context
+
+            result = await rapier_provider.add_joint("sim_123", joint)
+
+            assert result == "joint_123"

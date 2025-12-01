@@ -2,6 +2,7 @@
 
 import tempfile
 from pathlib import Path
+from unittest import mock
 from chuk_mcp_physics.config import (
     ProviderConfig,
     RapierConfig,
@@ -56,6 +57,27 @@ class TestYAMLLoading:
             monkeypatch.setenv("PHYSICS_CONFIG_PATH", temp_path)
             config = load_yaml_config()
             assert config.get("test_key") == "test_value"
+        finally:
+            Path(temp_path).unlink()
+
+    def test_load_yaml_without_yaml_library(self, monkeypatch):
+        """Test loading when yaml library is not available."""
+        # Mock YAML_AVAILABLE to be False
+        with mock.patch("chuk_mcp_physics.config.YAML_AVAILABLE", False):
+            config = load_yaml_config()
+            assert config == {}
+
+    def test_load_yaml_invalid_file(self, monkeypatch):
+        """Test loading YAML from invalid file."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            f.write("invalid: yaml: content: [[[")
+            temp_path = f.name
+
+        try:
+            monkeypatch.setenv("PHYSICS_CONFIG_PATH", temp_path)
+            config = load_yaml_config()
+            # Should return empty dict on error
+            assert config == {}
         finally:
             Path(temp_path).unlink()
 
