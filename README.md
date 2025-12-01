@@ -5,7 +5,7 @@
 
 **MCP server for physics simulations and calculations using Rapier physics engine**
 
-Provides LLMs with physics superpowers: ballistic calculations, collision prediction, rigid-body simulations, and trajectory recording for 3D visualization.
+Provides LLMs with physics superpowers: ballistic calculations, collision prediction, rigid-body simulations, fluid dynamics (drag, buoyancy, terminal velocity), and trajectory recording for 3D visualization.
 
 ## 🚀 Quick Start (30 seconds)
 
@@ -183,7 +183,43 @@ LLM: [calls check_collision with appropriate units]
 
 ---
 
-### 7. **Film & VFX Pre-visualization**
+### 7. **Fluid Dynamics & Marine/Aerospace Engineering**
+**Underwater Torpedo Simulation**
+```
+User: "A torpedo is launched underwater at 20 m/s. It weighs 100kg, has a
+       streamlined shape (Cd=0.04), and cross-section of 0.03 m².
+       How far does it travel in 30 seconds?"
+LLM: [calls simulate_underwater_motion]
+     "The torpedo travels 147.5 meters before drag and buoyancy slow it down.
+      Final velocity: 0.2 m/s. Maximum depth: 729.9 m..."
+```
+
+**Terminal Velocity & Drag Analysis**
+```
+User: "What's the terminal velocity of a skydiver (70kg, 0.7m² area)?"
+LLM: [calls calculate_terminal_velocity]
+     "Terminal velocity is 40 m/s (90 mph) in belly-down position.
+      Takes 12.2 seconds to reach 95% of terminal velocity..."
+```
+
+**Buoyancy & Float/Sink Predictions**
+```
+User: "Will a 1kg steel ball (10cm diameter) float in water?"
+LLM: [calls calculate_buoyancy]
+     "No, it will sink. Buoyant force is 5.14 N, but weight is 9.81 N.
+      The ball is denser than water..."
+```
+
+**Applications:**
+- **Marine engineering:** Submarine drag, torpedo trajectories, underwater vehicles
+- **Aerospace:** Parachute descent, atmospheric re-entry, drag optimization
+- **Sports science:** Swimming efficiency, diving trajectories
+- **Product design:** Floatation devices, drag reduction, hydrodynamics
+- **Environmental:** Particle settling rates, pollutant dispersion
+
+---
+
+### 8. **Film & VFX Pre-visualization**
 **Stunt Planning**
 ```
 User: "Car jumps off 3m ramp at 25 m/s, 20° angle. How far does it fly and where does it land?"
@@ -612,6 +648,13 @@ Direct formula-based calculations that return instant results:
 | `calculate_force` | F = ma calculations | "What force accelerates this car?" |
 | `calculate_kinetic_energy` | KE = ½mv² | "How much energy in this crash?" |
 | `calculate_momentum` | p = mv | "What's the momentum transfer?" |
+| `calculate_potential_energy` | PE = mgh | "What's the energy at height?" |
+| `calculate_work_power` | Work (F·d) and power (W/t) | "How much work lifting this box?" |
+| `calculate_elastic_collision` | 1D elastic collision (conserves energy & momentum) | "Pool balls colliding?" |
+| `calculate_drag_force` | Air/water resistance (F = ½ρv²C_dA) | "What's the drag on this car?" |
+| `calculate_buoyancy` | Will it float? (Archimedes) | "Does a steel ball float in water?" |
+| `calculate_terminal_velocity` | Maximum fall speed | "How fast does a skydiver fall?" |
+| `simulate_underwater_motion` | Underwater trajectory with drag & buoyancy | "How far does a torpedo travel?" |
 
 **Characteristics:**
 - ⚡ Instant execution (< 1ms)
@@ -944,6 +987,116 @@ await add_rigid_body(..., linear_damping=0.5)
 
 ---
 
+### Phase 1.5: Fluid Dynamics 🌊
+
+**Analytical fluid calculations** for drag, buoyancy, and underwater motion.
+
+**What it does:**
+- Calculates drag forces (quadratic air/water resistance)
+- Computes buoyancy using Archimedes' principle
+- Determines terminal velocity for falling objects
+- Simulates underwater projectile motion with drag and buoyancy
+
+**Tools Available:**
+
+#### 1. `calculate_drag_force` - Air/Water Resistance
+
+Calculate the force opposing motion through a fluid.
+
+```python
+# Ball falling through water
+result = await calculate_drag_force(
+    velocity=[0, -5.0, 0],          # 5 m/s downward
+    cross_sectional_area=0.00785,   # π*r² for 10cm diameter
+    fluid_density=1000,              # water (air=1.225)
+    drag_coefficient=0.47            # sphere (streamlined=0.04)
+)
+
+print(f"Drag force: {result['magnitude']:.1f} N (upward)")
+print(f"Reynolds number: {result['reynolds_number']:.0f}")
+```
+
+**Common drag coefficients:**
+- Sphere: 0.47
+- Streamlined (torpedo): 0.04
+- Flat plate: 1.28
+- Human (standing): 1.0-1.3
+- Car: 0.25-0.35
+
+#### 2. `calculate_buoyancy` - Will it Float?
+
+Determine buoyant force and whether objects float or sink.
+
+```python
+# Check if 1kg steel ball floats
+volume = (4/3) * π * (0.05)**3  # 10cm diameter sphere
+result = await calculate_buoyancy(
+    volume=0.000524,          # m³
+    fluid_density=1000        # water
+)
+
+weight = 1.0 * 9.81  # 9.81 N
+buoyancy = result['buoyant_force']  # 5.14 N
+
+# weight > buoyancy → SINKS
+```
+
+#### 3. `calculate_terminal_velocity` - Maximum Fall Speed
+
+Calculate the speed where drag equals weight.
+
+```python
+# Skydiver terminal velocity
+result = await calculate_terminal_velocity(
+    mass=70,                      # kg
+    cross_sectional_area=0.7,     # m² (belly-down)
+    fluid_density=1.225,          # air
+    drag_coefficient=1.0          # human
+)
+
+print(f"Terminal velocity: {result['terminal_velocity']:.1f} m/s")
+# Result: ~40 m/s (90 mph)
+print(f"Time to 95%: {result['time_to_95_percent']:.1f}s")
+```
+
+#### 4. `simulate_underwater_motion` - Full Fluid Simulation
+
+Simulate motion through fluids with drag and buoyancy forces.
+
+```python
+# Torpedo launched underwater
+result = await simulate_underwater_motion(
+    initial_velocity=[20, 0, 0],   # 20 m/s forward
+    mass=100,                       # kg
+    volume=0.05,                    # m³
+    cross_sectional_area=0.03,      # m²
+    fluid_density=1000,             # water
+    drag_coefficient=0.04,          # streamlined
+    duration=30.0
+)
+
+print(f"Distance traveled: {result['total_distance']:.1f}m")
+print(f"Final velocity: {result['final_velocity']}")
+print(f"Max depth: {result['max_depth']:.1f}m")
+```
+
+**Use Cases:**
+- **Marine engineering:** Torpedo trajectories, submarine drag
+- **Aerospace:** Skydiving, parachute descent, atmospheric re-entry
+- **Sports:** Swimming, diving, underwater ballistics
+- **Product design:** Drag optimization, floatation devices
+- **Environmental:** Particle settling, pollutant dispersion
+
+**Physics Models:**
+- Quadratic drag: F_drag = 0.5 * ρ * v² * C_d * A
+- Buoyancy: F_b = ρ_fluid * V * g (Archimedes)
+- Terminal velocity: v_t = √(2mg / ρC_dA)
+- Numerical integration for complex underwater motion
+
+**See:** `examples/10_fluid_dynamics.py` for comprehensive demonstrations
+
+---
+
 ### 🎉 Phase 1 Complete Summary
 
 **Status:** ✅ **All features production-ready**
@@ -954,14 +1107,15 @@ await add_rigid_body(..., linear_damping=0.5)
 | **Contact Events** | ✅ Shipped | All trajectory tools | 100% |
 | **Joints & Constraints** | ✅ Shipped | `add_joint` | 100% |
 | **Damping Controls** | ✅ Shipped | `add_rigid_body` | 100% |
+| **Fluid Dynamics** | ✅ Shipped | `calculate_drag_force`, `calculate_buoyancy`, `calculate_terminal_velocity`, `simulate_underwater_motion` | 100% |
 
-**Test Coverage:** 94% (116 tests passing)
+**Test Coverage:** 92% (150 tests passing)
 
 **Deployment:**
 - 🌐 MCP Server: https://physics.chukai.io/mcp
 - 🦀 Rapier Service: https://rapier.chukai.io
 
-**Examples:** See `examples/06_bounce_detection.py` through `examples/09_phase1_complete.py`
+**Examples:** See `examples/06_bounce_detection.py` through `examples/10_fluid_dynamics.py`
 
 **Next Up:** Phase 2 - ML Integration & Data Generation
 - Batch simulations for training data
@@ -1501,8 +1655,9 @@ See **[RAPIER_SERVICE.md](RAPIER_SERVICE.md)** for:
 | Feature | Analytic Provider | Rapier Provider |
 |---------|------------------|-----------------|
 | **Projectile motion** | ✅ Exact (kinematic eqs) | ✅ Simulated |
-| **Simple collisions** | ✅ Exact (sphere-sphere) | ✅ Simulated |
-| **Force/energy/momentum** | ✅ Direct calculation | ✅ Can derive from sim |
+| **Simple collisions** | ✅ Exact (sphere-sphere, elastic) | ✅ Simulated |
+| **Force/energy/momentum** | ✅ F=ma, KE, PE, momentum, work/power | ✅ Can derive from sim |
+| **Fluid dynamics** | ✅ Drag, buoyancy, terminal velocity | ❌ Not supported |
 | **Rigid-body dynamics** | ❌ Not supported | ✅ Full 3D/2D physics |
 | **Complex shapes** | ❌ Spheres only | ✅ Box, capsule, mesh, etc |
 | **Friction/restitution** | ❌ Not modeled | ✅ Full material properties |

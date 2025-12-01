@@ -13,6 +13,7 @@ from ..config import RapierConfig
 from ..models import (
     CollisionCheckRequest,
     CollisionCheckResponse,
+    ElasticCollisionResponse,
     ForceCalculationRequest,
     ForceCalculationResponse,
     JointDefinition,
@@ -20,6 +21,7 @@ from ..models import (
     KineticEnergyResponse,
     MomentumRequest,
     MomentumResponse,
+    PotentialEnergyResponse,
     ProjectileMotionRequest,
     ProjectileMotionResponse,
     RigidBodyDefinition,
@@ -27,6 +29,7 @@ from ..models import (
     SimulationCreateResponse,
     SimulationStepResponse,
     TrajectoryResponse,
+    WorkPowerResponse,
 )
 from .analytic import AnalyticProvider
 from .base import PhysicsProvider
@@ -85,6 +88,24 @@ class RapierProvider(PhysicsProvider):
     async def calculate_momentum(self, request: MomentumRequest) -> MomentumResponse:
         """Delegate to analytic provider."""
         return await self._analytic.calculate_momentum(request)
+
+    async def calculate_potential_energy(
+        self, mass: float, height: float, gravity: float = 9.81
+    ) -> "PotentialEnergyResponse":
+        """Delegate to analytic provider."""
+        return await self._analytic.calculate_potential_energy(mass, height, gravity)
+
+    async def calculate_work_power(
+        self, force: list[float], displacement: list[float], time: float | None = None
+    ) -> "WorkPowerResponse":
+        """Delegate to analytic provider."""
+        return await self._analytic.calculate_work_power(force, displacement, time)
+
+    async def calculate_elastic_collision(
+        self, mass1: float, velocity1: float, mass2: float, velocity2: float
+    ) -> "ElasticCollisionResponse":
+        """Delegate to analytic provider."""
+        return await self._analytic.calculate_elastic_collision(mass1, velocity1, mass2, velocity2)
 
     # ========================================================================
     # Simulation Methods (Rapier service)

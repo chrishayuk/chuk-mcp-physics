@@ -24,8 +24,11 @@ from chuk_mcp_server import run, tool
 
 from .config import SimulationLimits
 from .models import (
+    BuoyancyRequest,
     CollisionCheckRequest,
     CollisionCheckResponse,
+    DragForceRequest,
+    FluidEnvironment,
     ForceCalculationRequest,
     ForceCalculationResponse,
     JointDefinition,
@@ -39,11 +42,14 @@ from .models import (
     SimulationConfig,
     SimulationCreateResponse,
     SimulationStepResponse,
+    TerminalVelocityRequest,
     TrajectoryResponse,
     TrajectoryWithEventsResponse,
+    UnderwaterMotionRequest,
 )
 from .providers.factory import get_provider_for_tool
 from .analysis import analyze_trajectory_with_events
+from . import fluid
 
 # Configure logging
 # In STDIO mode, we need to be quiet to avoid polluting the JSON-RPC stream
@@ -353,6 +359,116 @@ async def calculate_momentum(
     )
     provider = get_provider_for_tool("momentum")
     return await provider.calculate_momentum(request)
+
+
+@tool  # type: ignore[arg-type]
+async def calculate_potential_energy(
+    mass: float,
+    height: float,
+    gravity: float = 9.81,
+) -> dict:
+    """Calculate gravitational potential energy.
+
+    Computes PE = mgh (mass × gravity × height).
+    Also returns the equivalent velocity if the object falls from that height.
+
+    Args:
+        mass: Object mass in kilograms
+        height: Height above reference point in meters
+        gravity: Gravitational acceleration in m/s² (default 9.81 for Earth)
+
+    Returns:
+        Dict containing:
+            - potential_energy: PE in Joules
+            - equivalent_kinetic_velocity: Speed if dropped from height (m/s)
+
+    Example - Object at 10m height:
+        result = await calculate_potential_energy(mass=2.0, height=10.0)
+        # PE = 196.2 J
+        # Velocity if dropped = 14.0 m/s
+    """
+    provider = get_provider_for_tool("potential_energy")
+    response = await provider.calculate_potential_energy(mass, height, gravity)
+    return response.model_dump()
+
+
+@tool  # type: ignore[arg-type]
+async def calculate_work_power(
+    force: Union[list[float], str],
+    displacement: Union[list[float], str],
+    time: Optional[float] = None,
+) -> dict:
+    """Calculate work done by a force and optionally power.
+
+    Work is the dot product: W = F · d
+    Power (if time given): P = W / t
+
+    Args:
+        force: Force vector [x, y, z] in Newtons (or JSON string)
+        displacement: Displacement vector [x, y, z] in meters (or JSON string)
+        time: Time taken in seconds (optional, for power calculation)
+
+    Returns:
+        Dict containing:
+            - work: Work done in Joules
+            - power: Power in Watts (if time provided, else None)
+
+    Example - Pushing box 5m with 100N force:
+        result = await calculate_work_power(
+            force=[100, 0, 0],
+            displacement=[5, 0, 0],
+            time=10.0
+        )
+        # Work = 500 J, Power = 50 W
+    """
+    # Parse inputs
+    parsed_force = json.loads(force) if isinstance(force, str) else force
+    parsed_disp = json.loads(displacement) if isinstance(displacement, str) else displacement
+
+    provider = get_provider_for_tool("work_power")
+    response = await provider.calculate_work_power(parsed_force, parsed_disp, time)
+    return response.model_dump()
+
+
+@tool  # type: ignore[arg-type]
+async def calculate_elastic_collision(
+    mass1: float,
+    velocity1: float,
+    mass2: float,
+    velocity2: float,
+) -> dict:
+    """Calculate final velocities after a 1D elastic collision.
+
+    Uses conservation of momentum and energy to solve for final velocities.
+    Assumes perfectly elastic collision (no energy loss).
+
+    Args:
+        mass1: Mass of first object in kg
+        velocity1: Initial velocity of first object in m/s (1D)
+        mass2: Mass of second object in kg
+        velocity2: Initial velocity of second object in m/s (1D)
+
+    Returns:
+        Dict containing:
+            - final_velocity1: Final velocity of object 1 in m/s
+            - final_velocity2: Final velocity of object 2 in m/s
+            - initial_kinetic_energy: Total KE before (J)
+            - final_kinetic_energy: Total KE after (J) - should equal initial
+            - initial_momentum: Total momentum before (kg⋅m/s)
+            - final_momentum: Total momentum after (kg⋅m/s) - should equal initial
+
+    Example - Pool ball collision:
+        result = await calculate_elastic_collision(
+            mass1=0.17,      # kg (pool ball)
+            velocity1=2.0,   # m/s (moving right)
+            mass2=0.17,      # kg (pool ball)
+            velocity2=0.0    # m/s (stationary)
+        )
+        # Result: ball 1 stops, ball 2 moves at 2.0 m/s
+    """
+    provider = get_provider_for_tool("elastic_collision")
+    response = await provider.calculate_elastic_collision(mass1, velocity1, mass2, velocity2)
+    return response.model_dump()
 
 
 # ============================================================================
@@ -815,6 +931,235 @@ async def record_trajectory_with_events(
         bounce_height_threshold=bounce_height_threshold,
         contact_events=None,  # Future: get from Rapier service
     )
+
+
+# ============================================================================
+# Fluid Dynamics Tools
+# ============================================================================
+
+
+@tool  # type: ignore[arg-type]
+async def calculate_drag_force(
+    velocity: Union[list[float], str],
+    cross_sectional_area: float,
+    fluid_density: float,
+    drag_coefficient: float = 0.47,
+) -> dict:
+    """Calculate drag force for an object moving through a fluid.
+
+    The drag force opposes motion and is given by:
+        F_drag = 0.5 * ρ * v² * C_d * A
+
+    Common drag coefficients:
+        - Sphere: 0.47
+        - Streamlined shape: 0.04
+        - Flat plate (perpendicular): 1.28
+        - Human (standing): 1.0-1.3
+        - Car: 0.25-0.35
+
+    Args:
+        velocity: Velocity vector [x, y, z] in m/s (or JSON string)
+        cross_sectional_area: Area perpendicular to flow in m²
+        fluid_density: Fluid density in kg/m³ (water=1000, air=1.225)
+        drag_coefficient: Drag coefficient (default 0.47 for sphere)
+
+    Returns:
+        Drag force vector, magnitude, and Reynolds number
+
+    Example - Ball falling through water:
+        result = await calculate_drag_force(
+            velocity=[0, -5.0, 0],
+            cross_sectional_area=0.00785,  # π * (0.05m)² for 10cm diameter
+            fluid_density=1000,  # water
+            drag_coefficient=0.47
+        )
+        # Returns upward drag force opposing downward motion
+    """
+    # Parse velocity if string
+    parsed_velocity = json.loads(velocity) if isinstance(velocity, str) else velocity
+
+    request = DragForceRequest(
+        velocity=parsed_velocity,
+        cross_sectional_area=cross_sectional_area,
+        fluid_density=fluid_density,
+        drag_coefficient=drag_coefficient,
+    )
+
+    response = fluid.calculate_drag_force(request)
+    return response.model_dump()
+
+
+@tool  # type: ignore[arg-type]
+async def calculate_buoyancy(
+    volume: float,
+    fluid_density: float,
+    gravity: float = 9.81,
+    submerged_fraction: float = 1.0,
+) -> dict:
+    """Calculate buoyancy force using Archimedes' principle.
+
+    The buoyant force equals the weight of displaced fluid:
+        F_b = ρ_fluid * V_submerged * g
+
+    Args:
+        volume: Object volume in m³
+        fluid_density: Fluid density in kg/m³ (water=1000, air=1.225)
+        gravity: Gravitational acceleration in m/s² (default 9.81)
+        submerged_fraction: Fraction submerged 0.0-1.0 (default 1.0 = fully submerged)
+
+    Returns:
+        Buoyant force (upward) and displaced mass
+
+    Example - Checking if a 1kg ball will float:
+        # 10cm diameter sphere: V = (4/3)πr³ = 0.000524 m³
+        result = await calculate_buoyancy(
+            volume=0.000524,
+            fluid_density=1000  # water
+        )
+        # buoyant_force = 5.14 N
+        # If weight (mg) < buoyant force, it floats
+        # 1kg * 9.81 = 9.81 N > 5.14 N, so it sinks
+    """
+    request = BuoyancyRequest(
+        volume=volume,
+        fluid_density=fluid_density,
+        gravity=gravity,
+        submerged_fraction=submerged_fraction,
+    )
+
+    response = fluid.calculate_buoyancy(request)
+    return response.model_dump()
+
+
+@tool  # type: ignore[arg-type]
+async def calculate_terminal_velocity(
+    mass: float,
+    cross_sectional_area: float,
+    fluid_density: float,
+    drag_coefficient: float = 0.47,
+    gravity: float = 9.81,
+) -> dict:
+    """Calculate terminal velocity when drag equals weight.
+
+    At terminal velocity, forces balance:
+        F_drag = F_weight
+        v_terminal = √(2mg / ρC_dA)
+
+    Args:
+        mass: Object mass in kg
+        cross_sectional_area: Area perpendicular to fall direction in m²
+        fluid_density: Fluid density in kg/m³ (air=1.225, water=1000)
+        drag_coefficient: Drag coefficient (sphere=0.47, skydiver=1.0)
+        gravity: Gravitational acceleration in m/s² (default 9.81)
+
+    Returns:
+        Terminal velocity, time to 95%, and drag force at terminal
+
+    Example - Skydiver terminal velocity:
+        result = await calculate_terminal_velocity(
+            mass=70,  # kg
+            cross_sectional_area=0.7,  # m² (belly-down position)
+            fluid_density=1.225,  # air
+            drag_coefficient=1.0,  # human
+        )
+        # v_terminal ≈ 54 m/s (120 mph)
+    """
+    request = TerminalVelocityRequest(
+        mass=mass,
+        cross_sectional_area=cross_sectional_area,
+        fluid_density=fluid_density,
+        drag_coefficient=drag_coefficient,
+        gravity=gravity,
+    )
+
+    response = fluid.calculate_terminal_velocity(request)
+    return response.model_dump()
+
+
+@tool  # type: ignore[arg-type]
+async def simulate_underwater_motion(
+    initial_velocity: Union[list[float], str],
+    mass: float,
+    volume: float,
+    cross_sectional_area: float,
+    fluid_density: float = 1000.0,
+    fluid_viscosity: float = 1.002e-3,
+    initial_position: Union[list[float], str, None] = None,
+    drag_coefficient: float = 0.47,
+    gravity: float = 9.81,
+    duration: float = 10.0,
+    dt: float = 0.01,
+) -> dict:
+    """Simulate underwater projectile motion with drag and buoyancy.
+
+    Uses numerical integration to simulate motion under:
+    - Gravity (downward)
+    - Buoyancy (upward, from displaced fluid)
+    - Drag (opposes motion)
+
+    Args:
+        initial_velocity: Initial velocity [x, y, z] in m/s
+        mass: Object mass in kg
+        volume: Object volume in m³
+        cross_sectional_area: Cross-sectional area in m²
+        fluid_density: Fluid density in kg/m³ (default 1000 for water)
+        fluid_viscosity: Fluid viscosity in Pa·s (default 1.002e-3 for water)
+        initial_position: Initial position [x, y, z] in m (default [0,0,0])
+        drag_coefficient: Drag coefficient (default 0.47 for sphere)
+        gravity: Gravitational acceleration in m/s² (default 9.81)
+        duration: Simulation duration in seconds (default 10.0)
+        dt: Time step in seconds (default 0.01)
+
+    Returns:
+        Complete trajectory, final state, max depth, and total distance
+
+    Example - Torpedo launch:
+        result = await simulate_underwater_motion(
+            initial_velocity=[20, 0, 0],  # 20 m/s forward
+            mass=100,  # kg
+            volume=0.05,  # m³
+            cross_sectional_area=0.03,  # m²
+            fluid_density=1000,  # water
+            drag_coefficient=0.04,  # streamlined
+            duration=30.0
+        )
+    """
+    # Parse inputs
+    parsed_velocity = (
+        json.loads(initial_velocity) if isinstance(initial_velocity, str) else initial_velocity
+    )
+    parsed_position = [0.0, 0.0, 0.0]
+    if initial_position is not None:
+        parsed_position = (
+            json.loads(initial_position) if isinstance(initial_position, str) else initial_position
+        )
+
+    fluid_env = FluidEnvironment(
+        density=fluid_density,
+        viscosity=fluid_viscosity,
+        name=None,
+    )
+
+    request = UnderwaterMotionRequest(
+        initial_position=parsed_position,
+        initial_velocity=parsed_velocity,
+        mass=mass,
+        volume=volume,
+        drag_coefficient=drag_coefficient,
+        cross_sectional_area=cross_sectional_area,
+        fluid=fluid_env,
+        gravity=gravity,
+        duration=duration,
+        dt=dt,
+    )
+
+    response = fluid.simulate_underwater_motion(request)
+    return response.model_dump()
+
+
+# ============================================================================
+# Simulation Management
+# ============================================================================
 
 
 @tool  # type: ignore[arg-type]

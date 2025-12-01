@@ -8,6 +8,7 @@ from abc import ABC, abstractmethod
 from ..models import (
     CollisionCheckRequest,
     CollisionCheckResponse,
+    ElasticCollisionResponse,
     ForceCalculationRequest,
     ForceCalculationResponse,
     JointDefinition,
@@ -15,9 +16,11 @@ from ..models import (
     KineticEnergyResponse,
     MomentumRequest,
     MomentumResponse,
+    PotentialEnergyResponse,
     ProjectileMotionRequest,
     ProjectileMotionResponse,
     RigidBodyDefinition,
+    WorkPowerResponse,
     SimulationConfig,
     SimulationCreateResponse,
     SimulationStepResponse,
@@ -97,6 +100,55 @@ class PhysicsProvider(ABC):
 
         Returns:
             MomentumResponse with momentum vector
+        """
+        pass  # pragma: no cover
+
+    @abstractmethod
+    async def calculate_potential_energy(
+        self, mass: float, height: float, gravity: float = 9.81
+    ) -> "PotentialEnergyResponse":
+        """Calculate gravitational potential energy (PE = mgh).
+
+        Args:
+            mass: Object mass in kg
+            height: Height in meters
+            gravity: Gravitational acceleration in m/s²
+
+        Returns:
+            PotentialEnergyResponse with energy value
+        """
+        pass  # pragma: no cover
+
+    @abstractmethod
+    async def calculate_work_power(
+        self, force: list[float], displacement: list[float], time: float | None = None
+    ) -> "WorkPowerResponse":
+        """Calculate work (W = F·d) and optionally power (P = W/t).
+
+        Args:
+            force: Force vector in Newtons
+            displacement: Displacement vector in meters
+            time: Optional time in seconds
+
+        Returns:
+            WorkPowerResponse with work and power values
+        """
+        pass  # pragma: no cover
+
+    @abstractmethod
+    async def calculate_elastic_collision(
+        self, mass1: float, velocity1: float, mass2: float, velocity2: float
+    ) -> "ElasticCollisionResponse":
+        """Calculate final velocities after 1D elastic collision.
+
+        Args:
+            mass1: Mass of first object
+            velocity1: Initial velocity of first object
+            mass2: Mass of second object
+            velocity2: Initial velocity of second object
+
+        Returns:
+            ElasticCollisionResponse with final velocities and conservation check
         """
         pass  # pragma: no cover
 

@@ -217,6 +217,219 @@ class TestMomentum:
         assert result.magnitude == pytest.approx(expected_magnitude)
 
 
+class TestPotentialEnergy:
+    """Test potential energy calculations."""
+
+    @pytest.mark.asyncio
+    async def test_simple_potential_energy(self, provider):
+        """PE = mgh with simple values."""
+        result = await provider.calculate_potential_energy(
+            mass=10.0,
+            height=5.0,
+            gravity=9.81,
+        )
+
+        expected_pe = 10.0 * 9.81 * 5.0
+        assert result.potential_energy == pytest.approx(expected_pe)
+
+    @pytest.mark.asyncio
+    async def test_equivalent_velocity(self, provider):
+        """Check equivalent kinetic velocity (v = √(2gh))."""
+        result = await provider.calculate_potential_energy(
+            mass=2.0,
+            height=10.0,
+            gravity=9.81,
+        )
+
+        expected_velocity = (2 * 9.81 * 10.0) ** 0.5
+        assert result.equivalent_kinetic_velocity == pytest.approx(expected_velocity)
+
+    @pytest.mark.asyncio
+    async def test_zero_height(self, provider):
+        """Zero height should give zero PE."""
+        result = await provider.calculate_potential_energy(
+            mass=5.0,
+            height=0.0,
+        )
+
+        assert result.potential_energy == pytest.approx(0.0)
+        assert result.equivalent_kinetic_velocity == pytest.approx(0.0)
+
+    @pytest.mark.asyncio
+    async def test_custom_gravity(self, provider):
+        """PE calculation with different gravity (e.g., Moon)."""
+        result = await provider.calculate_potential_energy(
+            mass=10.0,
+            height=5.0,
+            gravity=1.62,  # Moon's gravity
+        )
+
+        expected_pe = 10.0 * 1.62 * 5.0
+        assert result.potential_energy == pytest.approx(expected_pe)
+
+
+class TestWorkPower:
+    """Test work and power calculations."""
+
+    @pytest.mark.asyncio
+    async def test_simple_work(self, provider):
+        """W = F·d with aligned force and displacement."""
+        result = await provider.calculate_work_power(
+            force=[10.0, 0.0, 0.0],
+            displacement=[5.0, 0.0, 0.0],
+        )
+
+        assert result.work == pytest.approx(50.0)
+        assert result.power is None  # No time provided
+
+    @pytest.mark.asyncio
+    async def test_work_with_power(self, provider):
+        """P = W/t when time is provided."""
+        result = await provider.calculate_work_power(
+            force=[10.0, 0.0, 0.0],
+            displacement=[5.0, 0.0, 0.0],
+            time=2.0,
+        )
+
+        assert result.work == pytest.approx(50.0)
+        assert result.power == pytest.approx(25.0)
+
+    @pytest.mark.asyncio
+    async def test_perpendicular_force(self, provider):
+        """Perpendicular force does no work (F·d = 0)."""
+        result = await provider.calculate_work_power(
+            force=[10.0, 0.0, 0.0],
+            displacement=[0.0, 5.0, 0.0],
+        )
+
+        assert result.work == pytest.approx(0.0)
+
+    @pytest.mark.asyncio
+    async def test_3d_work(self, provider):
+        """Work calculation with 3D vectors."""
+        result = await provider.calculate_work_power(
+            force=[3.0, 4.0, 5.0],
+            displacement=[1.0, 2.0, 3.0],
+            time=10.0,
+        )
+
+        # W = 3*1 + 4*2 + 5*3 = 3 + 8 + 15 = 26
+        assert result.work == pytest.approx(26.0)
+        assert result.power == pytest.approx(2.6)
+
+    @pytest.mark.asyncio
+    async def test_negative_work(self, provider):
+        """Negative work when force opposes displacement."""
+        result = await provider.calculate_work_power(
+            force=[-10.0, 0.0, 0.0],
+            displacement=[5.0, 0.0, 0.0],
+        )
+
+        assert result.work == pytest.approx(-50.0)
+
+    @pytest.mark.asyncio
+    async def test_zero_time(self, provider):
+        """Zero time should not calculate power."""
+        result = await provider.calculate_work_power(
+            force=[10.0, 0.0, 0.0],
+            displacement=[5.0, 0.0, 0.0],
+            time=0.0,
+        )
+
+        assert result.work == pytest.approx(50.0)
+        assert result.power is None
+
+
+class TestElasticCollision:
+    """Test elastic collision calculations."""
+
+    @pytest.mark.asyncio
+    async def test_equal_mass_collision(self, provider):
+        """Equal masses: moving object transfers all momentum to stationary one."""
+        result = await provider.calculate_elastic_collision(
+            mass1=1.0,
+            velocity1=10.0,
+            mass2=1.0,
+            velocity2=0.0,
+        )
+
+        # For equal masses, velocities exchange
+        assert result.final_velocity1 == pytest.approx(0.0)
+        assert result.final_velocity2 == pytest.approx(10.0)
+
+    @pytest.mark.asyncio
+    async def test_momentum_conservation(self, provider):
+        """Momentum should be conserved."""
+        result = await provider.calculate_elastic_collision(
+            mass1=2.0,
+            velocity1=5.0,
+            mass2=3.0,
+            velocity2=-2.0,
+        )
+
+        # Check momentum conservation
+        assert result.initial_momentum == pytest.approx(result.final_momentum, abs=1e-10)
+
+    @pytest.mark.asyncio
+    async def test_energy_conservation(self, provider):
+        """Kinetic energy should be conserved in elastic collision."""
+        result = await provider.calculate_elastic_collision(
+            mass1=2.0,
+            velocity1=5.0,
+            mass2=3.0,
+            velocity2=-2.0,
+        )
+
+        # Check energy conservation
+        assert result.initial_kinetic_energy == pytest.approx(
+            result.final_kinetic_energy, abs=1e-10
+        )
+
+    @pytest.mark.asyncio
+    async def test_head_on_collision(self, provider):
+        """Head-on collision with equal masses."""
+        result = await provider.calculate_elastic_collision(
+            mass1=1.0,
+            velocity1=5.0,
+            mass2=1.0,
+            velocity2=-5.0,
+        )
+
+        # Velocities should reverse
+        assert result.final_velocity1 == pytest.approx(-5.0)
+        assert result.final_velocity2 == pytest.approx(5.0)
+
+    @pytest.mark.asyncio
+    async def test_massive_stationary_object(self, provider):
+        """Light object bouncing off heavy stationary object."""
+        result = await provider.calculate_elastic_collision(
+            mass1=1.0,
+            velocity1=10.0,
+            mass2=1000.0,  # Very heavy
+            velocity2=0.0,
+        )
+
+        # Light object should approximately reverse velocity
+        # Heavy object should barely move
+        assert result.final_velocity1 < 0  # Bounces back
+        assert abs(result.final_velocity1) < 11  # Speed doesn't exceed initial
+        assert abs(result.final_velocity2) < 0.1  # Heavy object barely moves
+
+    @pytest.mark.asyncio
+    async def test_both_moving_same_direction(self, provider):
+        """Both objects moving in same direction, faster catches slower."""
+        result = await provider.calculate_elastic_collision(
+            mass1=2.0,
+            velocity1=10.0,  # Faster
+            mass2=2.0,
+            velocity2=5.0,  # Slower
+        )
+
+        # After collision, they should exchange velocities (equal mass)
+        assert result.final_velocity1 == pytest.approx(5.0)
+        assert result.final_velocity2 == pytest.approx(10.0)
+
+
 class TestSimulationNotSupported:
     """Test that simulation methods raise NotImplementedError."""
 

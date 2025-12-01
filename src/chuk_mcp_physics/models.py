@@ -430,3 +430,203 @@ class MomentumResponse(BaseModel):
 
     momentum: list[float] = Field(..., description="Momentum vector [x, y, z] in kg⋅m/s")
     magnitude: float = Field(..., description="Momentum magnitude in kg⋅m/s")
+
+
+class PotentialEnergyRequest(BaseModel):
+    """Request for potential energy calculation."""
+
+    mass: float = Field(..., description="Mass in kilograms", gt=0.0)
+    height: float = Field(..., description="Height in meters", ge=0.0)
+    gravity: float = Field(default=9.81, description="Gravitational acceleration in m/s²", gt=0.0)
+
+
+class PotentialEnergyResponse(BaseModel):
+    """Response for potential energy calculation."""
+
+    potential_energy: float = Field(..., description="Gravitational potential energy in Joules")
+    equivalent_kinetic_velocity: float = Field(
+        ..., description="Velocity if converted to kinetic energy (v = √(2gh)) in m/s"
+    )
+
+
+class WorkPowerRequest(BaseModel):
+    """Request for work and power calculation."""
+
+    force: list[float] = Field(..., description="Force vector [x, y, z] in Newtons")
+    displacement: list[float] = Field(..., description="Displacement vector [x, y, z] in meters")
+    time: Optional[float] = Field(
+        None, description="Time taken in seconds (for power calculation)", gt=0.0
+    )
+
+
+class WorkPowerResponse(BaseModel):
+    """Response for work and power calculation."""
+
+    work: float = Field(..., description="Work done (W = F·d) in Joules")
+    power: Optional[float] = Field(None, description="Power (P = W/t) in Watts (if time provided)")
+
+
+class ElasticCollisionRequest(BaseModel):
+    """Request for 1D elastic collision calculation."""
+
+    mass1: float = Field(..., description="Mass of object 1 in kg", gt=0.0)
+    velocity1: float = Field(..., description="Initial velocity of object 1 in m/s")
+    mass2: float = Field(..., description="Mass of object 2 in kg", gt=0.0)
+    velocity2: float = Field(..., description="Initial velocity of object 2 in m/s")
+
+
+class ElasticCollisionResponse(BaseModel):
+    """Response for elastic collision calculation."""
+
+    final_velocity1: float = Field(..., description="Final velocity of object 1 in m/s")
+    final_velocity2: float = Field(..., description="Final velocity of object 2 in m/s")
+    initial_kinetic_energy: float = Field(..., description="Total KE before collision in Joules")
+    final_kinetic_energy: float = Field(..., description="Total KE after collision in Joules")
+    initial_momentum: float = Field(..., description="Total momentum before collision in kg⋅m/s")
+    final_momentum: float = Field(..., description="Total momentum after collision in kg⋅m/s")
+
+
+# ============================================================================
+# Fluid Dynamics Models
+# ============================================================================
+
+
+class FluidEnvironment(BaseModel):
+    """Fluid environment properties for drag and buoyancy calculations."""
+
+    density: float = Field(..., description="Fluid density in kg/m³", gt=0.0)
+    viscosity: float = Field(..., description="Dynamic viscosity in Pa·s (Pascal-seconds)", gt=0.0)
+    name: Optional[str] = Field(None, description="Environment name (e.g., 'water', 'air')")
+
+    @classmethod
+    def water(cls, temperature_celsius: float = 20.0) -> "FluidEnvironment":
+        """Create water environment at given temperature."""
+        # Water density at 20°C: 998.2 kg/m³, viscosity: 1.002e-3 Pa·s
+        return cls(density=998.2, viscosity=1.002e-3, name=f"water_{temperature_celsius}C")
+
+    @classmethod
+    def air(
+        cls, temperature_celsius: float = 20.0, pressure_pa: float = 101325.0
+    ) -> "FluidEnvironment":
+        """Create air environment at given temperature and pressure."""
+        # Air density at 20°C, 1 atm: 1.204 kg/m³, viscosity: 1.825e-5 Pa·s
+        return cls(density=1.204, viscosity=1.825e-5, name=f"air_{temperature_celsius}C")
+
+    @classmethod
+    def oil(cls) -> "FluidEnvironment":
+        """Create motor oil environment."""
+        # Motor oil: density ~900 kg/m³, viscosity ~0.1 Pa·s
+        return cls(density=900.0, viscosity=0.1, name="motor_oil")
+
+
+class DragForceRequest(BaseModel):
+    """Request for drag force calculation."""
+
+    velocity: list[float] = Field(..., description="Velocity vector [x, y, z] in m/s")
+    drag_coefficient: float = Field(
+        default=0.47,
+        description="Drag coefficient (sphere=0.47, streamlined=0.04, flat plate=1.28)",
+        gt=0.0,
+    )
+    cross_sectional_area: float = Field(
+        ..., description="Cross-sectional area in m² (perpendicular to flow)", gt=0.0
+    )
+    fluid_density: float = Field(
+        ..., description="Fluid density in kg/m³ (water=1000, air=1.225)", gt=0.0
+    )
+
+
+class DragForceResponse(BaseModel):
+    """Response for drag force calculation."""
+
+    drag_force: list[float] = Field(..., description="Drag force vector [x, y, z] in Newtons")
+    magnitude: float = Field(..., description="Drag force magnitude in Newtons")
+    reynolds_number: float = Field(
+        ..., description="Reynolds number (indicates flow regime: <2300=laminar, >4000=turbulent)"
+    )
+
+
+class BuoyancyRequest(BaseModel):
+    """Request for buoyancy force calculation."""
+
+    volume: float = Field(..., description="Object volume in m³", gt=0.0)
+    fluid_density: float = Field(
+        ..., description="Fluid density in kg/m³ (water=1000, air=1.225)", gt=0.0
+    )
+    gravity: float = Field(default=9.81, description="Gravitational acceleration in m/s²", gt=0.0)
+    submerged_fraction: float = Field(
+        default=1.0,
+        description="Fraction of volume submerged (0.0-1.0)",
+        ge=0.0,
+        le=1.0,
+    )
+
+
+class BuoyancyResponse(BaseModel):
+    """Response for buoyancy force calculation."""
+
+    buoyant_force: float = Field(..., description="Upward buoyant force in Newtons")
+    displaced_mass: float = Field(..., description="Mass of displaced fluid in kg")
+    will_float: Optional[bool] = Field(
+        None, description="Whether object floats (requires object_mass parameter)"
+    )
+    equilibrium_depth_fraction: Optional[float] = Field(
+        None,
+        description="Fraction submerged at equilibrium (requires object_mass and object_volume)",
+    )
+
+
+class TerminalVelocityRequest(BaseModel):
+    """Request for terminal velocity calculation."""
+
+    mass: float = Field(..., description="Object mass in kg", gt=0.0)
+    drag_coefficient: float = Field(
+        default=0.47,
+        description="Drag coefficient (sphere=0.47, skydiver=1.0, streamlined=0.04)",
+        gt=0.0,
+    )
+    cross_sectional_area: float = Field(..., description="Cross-sectional area in m²", gt=0.0)
+    fluid_density: float = Field(
+        ..., description="Fluid density in kg/m³ (air=1.225, water=1000)", gt=0.0
+    )
+    gravity: float = Field(default=9.81, description="Gravitational acceleration in m/s²", gt=0.0)
+
+
+class TerminalVelocityResponse(BaseModel):
+    """Response for terminal velocity calculation."""
+
+    terminal_velocity: float = Field(..., description="Terminal velocity in m/s")
+    time_to_95_percent: float = Field(
+        ..., description="Time to reach 95% of terminal velocity in seconds"
+    )
+    drag_force_at_terminal: float = Field(
+        ..., description="Drag force at terminal velocity in Newtons (equals weight)"
+    )
+
+
+class UnderwaterMotionRequest(BaseModel):
+    """Request for underwater projectile motion calculation."""
+
+    initial_position: list[float] = Field(
+        default=[0.0, 0.0, 0.0], description="Initial position [x, y, z] in meters"
+    )
+    initial_velocity: list[float] = Field(..., description="Initial velocity [x, y, z] in m/s")
+    mass: float = Field(..., description="Object mass in kg", gt=0.0)
+    volume: float = Field(..., description="Object volume in m³", gt=0.0)
+    drag_coefficient: float = Field(default=0.47, description="Drag coefficient", gt=0.0)
+    cross_sectional_area: float = Field(..., description="Cross-sectional area in m²", gt=0.0)
+    fluid: FluidEnvironment = Field(..., description="Fluid environment properties")
+    gravity: float = Field(default=9.81, description="Gravitational acceleration in m/s²", gt=0.0)
+    duration: float = Field(default=10.0, description="Simulation duration in seconds", gt=0.0)
+    dt: float = Field(default=0.01, description="Time step in seconds", gt=0.0)
+
+
+class UnderwaterMotionResponse(BaseModel):
+    """Response for underwater motion calculation."""
+
+    trajectory: list[list[float]] = Field(..., description="Trajectory points [[t, x, y, z], ...]")
+    final_position: list[float] = Field(..., description="Final position [x, y, z] in meters")
+    final_velocity: list[float] = Field(..., description="Final velocity [x, y, z] in m/s")
+    max_depth: float = Field(..., description="Maximum depth reached (negative y) in meters")
+    total_distance: float = Field(..., description="Total distance traveled in meters")
+    settled: bool = Field(..., description="Whether object reached equilibrium/settled")

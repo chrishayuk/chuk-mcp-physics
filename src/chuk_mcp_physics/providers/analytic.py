@@ -10,6 +10,7 @@ import numpy as np
 from ..models import (
     CollisionCheckRequest,
     CollisionCheckResponse,
+    ElasticCollisionResponse,
     ForceCalculationRequest,
     ForceCalculationResponse,
     JointDefinition,
@@ -17,12 +18,14 @@ from ..models import (
     KineticEnergyResponse,
     MomentumRequest,
     MomentumResponse,
+    PotentialEnergyResponse,
     ProjectileMotionRequest,
     ProjectileMotionResponse,
     RigidBodyDefinition,
     SimulationConfig,
     SimulationCreateResponse,
     SimulationStepResponse,
+    WorkPowerResponse,
     TrajectoryResponse,
 )
 from .base import PhysicsProvider
@@ -226,6 +229,62 @@ class AnalyticProvider(PhysicsProvider):
         magnitude = np.linalg.norm(momentum)
 
         return MomentumResponse(momentum=momentum.tolist(), magnitude=magnitude)
+
+    async def calculate_potential_energy(
+        self, mass: float, height: float, gravity: float = 9.81
+    ) -> PotentialEnergyResponse:
+        """Calculate gravitational potential energy: PE = mgh."""
+        pe = mass * gravity * height
+        # Equivalent velocity if dropped: v = sqrt(2gh)
+        equiv_velocity = math.sqrt(2 * gravity * height)
+
+        return PotentialEnergyResponse(
+            potential_energy=pe, equivalent_kinetic_velocity=equiv_velocity
+        )
+
+    async def calculate_work_power(
+        self, force: list[float], displacement: list[float], time: float | None = None
+    ) -> WorkPowerResponse:
+        """Calculate work (W = F·d) and optionally power (P = W/t)."""
+        force_arr = np.array(force)
+        disp_arr = np.array(displacement)
+
+        # Work = F · d (dot product)
+        work = float(np.dot(force_arr, disp_arr))
+
+        # Power = W/t (if time provided)
+        power = work / time if time is not None and time > 0 else None
+
+        return WorkPowerResponse(work=work, power=power)
+
+    async def calculate_elastic_collision(
+        self, mass1: float, velocity1: float, mass2: float, velocity2: float
+    ) -> ElasticCollisionResponse:
+        """Calculate final velocities after 1D elastic collision."""
+        # Elastic collision formulas
+        # v1' = ((m1 - m2)v1 + 2m2v2) / (m1 + m2)
+        # v2' = ((m2 - m1)v2 + 2m1v1) / (m1 + m2)
+
+        total_mass = mass1 + mass2
+
+        final_v1 = ((mass1 - mass2) * velocity1 + 2 * mass2 * velocity2) / total_mass
+        final_v2 = ((mass2 - mass1) * velocity2 + 2 * mass1 * velocity1) / total_mass
+
+        # Calculate energies and momenta for verification
+        initial_ke = 0.5 * mass1 * velocity1**2 + 0.5 * mass2 * velocity2**2
+        final_ke = 0.5 * mass1 * final_v1**2 + 0.5 * mass2 * final_v2**2
+
+        initial_p = mass1 * velocity1 + mass2 * velocity2
+        final_p = mass1 * final_v1 + mass2 * final_v2
+
+        return ElasticCollisionResponse(
+            final_velocity1=final_v1,
+            final_velocity2=final_v2,
+            initial_kinetic_energy=initial_ke,
+            final_kinetic_energy=final_ke,
+            initial_momentum=initial_p,
+            final_momentum=final_p,
+        )
 
     # ========================================================================
     # Simulation Methods (Not Supported)
