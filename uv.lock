@@ -97,7 +97,7 @@ wheels = [
 
 [[package]]
 name = "chuk-mcp-physics"
-version = "0.5"
+version = "0.5.1"
 source = { editable = "." }
 dependencies = [
     { name = "chuk-mcp-server" },

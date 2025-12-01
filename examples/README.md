@@ -34,7 +34,7 @@ python examples/10_fluid_dynamics.py
 
 ### Phase 2 Examples (Advanced Physics)
 
-Examples 11-15 use the **analytic provider** (no external dependencies):
+Examples 11-17 use the **analytic provider** (no external dependencies):
 
 ```bash
 # Advanced physics examples
@@ -43,6 +43,7 @@ python examples/12_oscillations.py
 python examples/13_circular_motion.py
 python examples/14_statics.py
 python examples/15_kinematics_analysis.py
+python examples/17_viscosity_and_reynolds_number.py
 ```
 
 ## Examples Overview
@@ -312,6 +313,34 @@ Motion data analysis and trajectory processing:
 
 ---
 
+#### 17. Viscosity & Reynolds Number (`17_viscosity_and_reynolds_number.py`)
+
+Demonstrates the viscosity parameter for accurate Reynolds number calculations:
+- **Viscosity comparison** - Same ball through different fluids
+- **Motor oil accuracy** - Why explicit viscosity matters (100x error without it!)
+- **Temperature effects** - How temp changes flow behavior
+- **Industrial fluids** - Hydraulic oil, glycerin, honey, molasses
+- **Backwards compatibility** - Old code still works
+
+**Output:**
+- Reynolds numbers for various fluids
+- Flow regime classification (laminar/transitional/turbulent)
+- Comparison tables showing viscosity impact
+- Temperature-dependent behavior
+- Engineering insights on flow regimes
+
+**Use cases:**
+- Industrial process design
+- Lubrication engineering
+- Food processing (honey, syrup flows)
+- Temperature-sensitive fluid analysis
+- Accurate flow regime determination
+
+**Key Insight:**
+Without explicit viscosity, motor oil Reynolds number is **100x too high**, leading to completely wrong flow regime classification! This example shows how the new viscosity parameter fixes this limitation.
+
+---
+
 ## Extending Examples
 
 All Phase 1 examples (00-10) use the analytic provider. For **simulation-based examples** (Rapier), see:
@@ -321,7 +350,7 @@ All Phase 1 examples (00-10) use the analytic provider. For **simulation-based e
 - `08_pendulum.py` (requires Rapier service)
 - `09_phase1_complete.py` (requires Rapier service)
 
-All Phase 2 examples (11-15) use the analytic provider (no external dependencies).
+All Phase 2 examples (11-17) use the analytic provider (no external dependencies).
 
 ---
 

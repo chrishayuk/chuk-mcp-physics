@@ -634,6 +634,11 @@ class DragForceRequest(BaseModel):
     fluid_density: float = Field(
         ..., description="Fluid density in kg/m³ (water=1000, air=1.225)", gt=0.0
     )
+    viscosity: Optional[float] = Field(
+        None,
+        description="Dynamic viscosity in Pa·s (water=1.002e-3, air=1.825e-5, oil=0.1). If not provided, estimated from density",
+        gt=0.0,
+    )
 
 
 class DragForceResponse(BaseModel):

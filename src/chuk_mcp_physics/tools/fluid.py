@@ -26,6 +26,7 @@ async def calculate_drag_force(
     cross_sectional_area: float,
     fluid_density: float,
     drag_coefficient: float = 0.47,
+    viscosity: Optional[float] = None,
 ) -> dict:
     """Calculate drag force for an object moving through a fluid.
 
@@ -44,6 +45,8 @@ async def calculate_drag_force(
         cross_sectional_area: Area perpendicular to flow in m²
         fluid_density: Fluid density in kg/m³ (water=1000, air=1.225)
         drag_coefficient: Drag coefficient (default 0.47 for sphere)
+        viscosity: Dynamic viscosity in Pa·s (water=1.002e-3, air=1.825e-5, oil=0.1).
+            If not provided, estimated from fluid_density for Reynolds number calculation.
 
     Returns:
         Drag force vector, magnitude, and Reynolds number
@@ -53,9 +56,19 @@ async def calculate_drag_force(
             velocity=[0, -5.0, 0],
             cross_sectional_area=0.00785,  # π * (0.05m)² for 10cm diameter
             fluid_density=1000,  # water
-            drag_coefficient=0.47
+            drag_coefficient=0.47,
+            viscosity=1.002e-3  # water viscosity for accurate Reynolds number
         )
         # Returns upward drag force opposing downward motion
+
+    Example - Ball falling through motor oil:
+        result = await calculate_drag_force(
+            velocity=[0, -2.0, 0],
+            cross_sectional_area=0.00785,
+            fluid_density=900,  # oil
+            drag_coefficient=0.47,
+            viscosity=0.1  # motor oil is much more viscous
+        )
     """
     # Parse velocity if string
     parsed_velocity = json.loads(velocity) if isinstance(velocity, str) else velocity
@@ -65,6 +78,7 @@ async def calculate_drag_force(
         cross_sectional_area=cross_sectional_area,
         fluid_density=fluid_density,
         drag_coefficient=drag_coefficient,
+        viscosity=viscosity,
     )
 
     response = fluid_module.calculate_drag_force(request)

@@ -107,6 +107,81 @@ class TestDragForce:
         ratio = water_response.magnitude / air_response.magnitude
         assert ratio == pytest.approx(1000.0 / 1.225, rel=0.01)
 
+    def test_drag_force_with_viscosity_water(self):
+        """Test drag force with explicit viscosity parameter for water."""
+        request = DragForceRequest(
+            velocity=[0.0, -5.0, 0.0],
+            cross_sectional_area=0.01,
+            fluid_density=1000.0,
+            drag_coefficient=0.47,
+            viscosity=1.002e-3,  # Water viscosity at 20°C
+        )
+
+        response = calculate_drag_force(request)
+
+        # Reynolds number should use provided viscosity
+        # Re = ρ * v * L / μ
+        speed = 5.0
+        L = math.sqrt(0.01)  # characteristic length
+        expected_re = 1000.0 * speed * L / 1.002e-3
+        assert response.reynolds_number == pytest.approx(expected_re, rel=0.01)
+
+    def test_drag_force_with_viscosity_oil(self):
+        """Test drag force with motor oil viscosity."""
+        request = DragForceRequest(
+            velocity=[0.0, -2.0, 0.0],
+            cross_sectional_area=0.01,
+            fluid_density=900.0,  # Motor oil
+            drag_coefficient=0.47,
+            viscosity=0.1,  # Motor oil is ~100x more viscous than water
+        )
+
+        response = calculate_drag_force(request)
+
+        # Reynolds number should be much lower due to high viscosity
+        speed = 2.0
+        L = math.sqrt(0.01)
+        expected_re = 900.0 * speed * L / 0.1
+        assert response.reynolds_number == pytest.approx(expected_re, rel=0.01)
+        # Should be in laminar regime (Re < 2300)
+        assert response.reynolds_number < 2300
+
+    def test_drag_force_viscosity_default_water(self):
+        """Test that viscosity defaults work correctly for water density."""
+        # Without explicit viscosity, should estimate water-like viscosity
+        request = DragForceRequest(
+            velocity=[0.0, -5.0, 0.0],
+            cross_sectional_area=0.01,
+            fluid_density=1000.0,
+            drag_coefficient=0.47,
+        )
+
+        response = calculate_drag_force(request)
+
+        # Should use default viscosity of 1.0e-3 for water-like density
+        speed = 5.0
+        L = math.sqrt(0.01)
+        expected_re = 1000.0 * speed * L / 1.0e-3
+        assert response.reynolds_number == pytest.approx(expected_re, rel=0.01)
+
+    def test_drag_force_viscosity_default_air(self):
+        """Test that viscosity defaults work correctly for air density."""
+        # Without explicit viscosity, should estimate air-like viscosity
+        request = DragForceRequest(
+            velocity=[10.0, 0.0, 0.0],
+            cross_sectional_area=0.1,
+            fluid_density=1.225,  # Air
+            drag_coefficient=0.47,
+        )
+
+        response = calculate_drag_force(request)
+
+        # Should use default viscosity of 1.8e-5 for air-like density
+        speed = 10.0
+        L = math.sqrt(0.1)
+        expected_re = 1.225 * speed * L / 1.8e-5
+        assert response.reynolds_number == pytest.approx(expected_re, rel=0.01)
+
 
 class TestBuoyancy:
     """Test buoyancy calculations."""

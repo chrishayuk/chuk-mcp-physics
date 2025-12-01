@@ -77,10 +77,15 @@ def calculate_drag_force(request: DragForceRequest) -> DragForceResponse:
     # Calculate Reynolds number for flow regime estimation
     # Re = ρ * v * L / μ where L is characteristic length (use √A as approximation)
     characteristic_length = math.sqrt(request.cross_sectional_area)
-    # We need viscosity for Reynolds number - using a default for now
-    # This is a limitation - ideally we'd pass FluidEnvironment instead
-    assumed_viscosity = 1.0e-3 if request.fluid_density > 100 else 1.8e-5
-    reynolds_number = request.fluid_density * speed * characteristic_length / assumed_viscosity
+
+    # Use provided viscosity, or estimate from density for backwards compatibility
+    if request.viscosity is not None:
+        viscosity = request.viscosity
+    else:
+        # Heuristic: if density > 100 kg/m³, assume water-like, else assume air-like
+        viscosity = 1.0e-3 if request.fluid_density > 100 else 1.8e-5
+
+    reynolds_number = request.fluid_density * speed * characteristic_length / viscosity
 
     return DragForceResponse(
         drag_force=drag_force,

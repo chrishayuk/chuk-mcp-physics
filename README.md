@@ -1530,7 +1530,8 @@ result = await calculate_drag_force(
     velocity=[0, -5.0, 0],          # 5 m/s downward
     cross_sectional_area=0.00785,   # π*r² for 10cm diameter
     fluid_density=1000,              # water (air=1.225)
-    drag_coefficient=0.47            # sphere (streamlined=0.04)
+    drag_coefficient=0.47,           # sphere (streamlined=0.04)
+    viscosity=1.002e-3               # optional: water viscosity for accurate Re
 )
 
 print(f"Drag force: {result['magnitude']:.1f} N (upward)")
@@ -1543,6 +1544,12 @@ print(f"Reynolds number: {result['reynolds_number']:.0f}")
 - Flat plate: 1.28
 - Human (standing): 1.0-1.3
 - Car: 0.25-0.35
+
+**Optional viscosity parameter** (for accurate Reynolds number):
+- Water at 20°C: `1.002e-3` Pa·s
+- Air at 20°C: `1.825e-5` Pa·s
+- Motor oil: `0.1` Pa·s
+- If omitted, estimated from density (water-like if >100 kg/m³, else air-like)
 
 #### 2. `calculate_buoyancy` - Will it Float?
 
