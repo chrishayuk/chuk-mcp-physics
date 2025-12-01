@@ -1,0 +1,67 @@
+--- a/rapier-service/src/main.rs
++++ b/rapier-service/src/main.rs
+@@ -278,8 +278,10 @@ async fn add_joint(
+     Path(sim_id): Path<String>,
+     Json(req): Json<AddJointRequest>,
+ ) -> Result<Json<AddJointResponse>, StatusCode> {
+-    let mut sims = state.write().await;
+-    let sim = sims.get_mut(&sim_id).ok_or(StatusCode::NOT_FOUND)?;
++    let mut storage = state.write().await;
++    let sim = storage.get_mut(&sim_id).await
++        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
++        .ok_or(StatusCode::NOT_FOUND)?;
+ 
+     let joint_def = physics::JointDefinition {
+         id: req.id.clone(),
+@@ -307,8 +309,10 @@ async fn step_simulation(
+     Path(sim_id): Path<String>,
+     Json(req): Json<StepSimulationRequest>,
+ ) -> Result<Json<SimulationStateResponse>, StatusCode> {
+-    let mut sims = state.write().await;
+-    let sim = sims.get_mut(&sim_id).ok_or(StatusCode::NOT_FOUND)?;
++    let mut storage = state.write().await;
++    let sim = storage.get_mut(&sim_id).await
++        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
++        .ok_or(StatusCode::NOT_FOUND)?;
+ 
+     sim.step(req.steps, req.dt);
+ 
+@@ -319,8 +323,10 @@ async fn get_simulation_state(
+     State(state): State<AppState>,
+     Path(sim_id): Path<String>,
+ ) -> Result<Json<SimulationStateResponse>, StatusCode> {
+-    let sims = state.read().await;
+-    let sim = sims.get(&sim_id).ok_or(StatusCode::NOT_FOUND)?;
++    let mut storage = state.write().await;
++    let sim = storage.get_mut(&sim_id).await
++        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
++        .ok_or(StatusCode::NOT_FOUND)?;
+ 
+     Ok(Json(simulation_state_to_response(sim_id, sim)))
+ }
+@@ -330,8 +336,10 @@ async fn record_trajectory(
+     Path((sim_id, body_id)): Path<(String, String)>,
+     Json(req): Json<RecordTrajectoryRequest>,
+ ) -> Result<Json<TrajectoryResponse>, StatusCode> {
+-    let mut sims = state.write().await;
+-    let sim = sims.get_mut(&sim_id).ok_or(StatusCode::NOT_FOUND)?;
++    let mut storage = state.write().await;
++    let sim = storage.get_mut(&sim_id).await
++        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
++        .ok_or(StatusCode::NOT_FOUND)?;
+ 
+     let mut frames = Vec::new();
+     let mut all_contact_events = Vec::new();
+@@ -372,10 +380,11 @@ async fn destroy_simulation(
+     State(state): State<AppState>,
+     Path(sim_id): Path<String>,
+ ) -> Result<StatusCode, StatusCode> {
+-    let mut sims = state.write().await;
++    let mut storage = state.write().await;
+ 
+-    if sims.remove(&sim_id).is_some() {
++    if storage.remove(&sim_id).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)? {
+         info!("Destroyed simulation {}", sim_id);
+         Ok(StatusCode::NO_CONTENT)
+     } else {
+         warn!("Attempted to destroy non-existent simulation {}", sim_id);

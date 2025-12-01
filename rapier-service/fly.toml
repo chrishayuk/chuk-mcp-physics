@@ -7,6 +7,8 @@ primary_region = "sjc"
 
 [env]
   RUST_LOG = "info"
+  STORAGE_BACKEND = "redis"
+  STORAGE_TTL_SECONDS = "3600"  # 1 hour TTL for simulations
 
 [http_service]
   internal_port = 9000

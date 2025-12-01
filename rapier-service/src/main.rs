@@ -14,10 +14,13 @@ use tracing::{info, warn};
 use uuid::Uuid;
 
 mod physics;
-use physics::{Simulation, SimulationConfig};
+mod storage;
 
-// Application state
-type AppState = Arc<RwLock<HashMap<String, Simulation>>>;
+use physics::{Simulation, SimulationConfig};
+use storage::{SimulationStorage, StorageConfig};
+
+// Application state - now uses the storage abstraction
+type AppState = Arc<RwLock<Box<dyn SimulationStorage>>>;
 
 #[tokio::main]
 async fn main() {
@@ -29,8 +32,13 @@ async fn main() {
         )
         .init();
 
-    // Shared state for simulations
-    let simulations: AppState = Arc::new(RwLock::new(HashMap::new()));
+    // Initialize storage backend from environment
+    let storage_config = StorageConfig::from_env();
+    let storage = storage_config.create_storage()
+        .await
+        .expect("Failed to initialize storage backend");
+
+    let simulations: AppState = Arc::new(RwLock::new(storage));
 
     // Build router
     let app = Router::new()
@@ -230,7 +238,8 @@ async fn create_simulation(
     let simulation = Simulation::new(config.clone());
 
     info!("Created simulation {}", sim_id);
-    state.write().await.insert(sim_id.clone(), simulation);
+    state.write().await.upsert(&sim_id, simulation).await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(Json(CreateSimulationResponse {
         sim_id: sim_id.clone(),
@@ -248,8 +257,10 @@ async fn add_body(
     Path(sim_id): Path<String>,
     Json(req): Json<AddBodyRequest>,
 ) -> Result<Json<AddBodyResponse>, StatusCode> {
-    let mut sims = state.write().await;
-    let sim = sims.get_mut(&sim_id).ok_or(StatusCode::NOT_FOUND)?;
+    let mut storage = state.write().await;
+    let sim = storage.get_mut(&sim_id).await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::NOT_FOUND)?;
 
     sim.add_body(
         req.id.clone(),
@@ -279,8 +290,10 @@ async fn add_joint(
     Path(sim_id): Path<String>,
     Json(req): Json<AddJointRequest>,
 ) -> Result<Json<AddJointResponse>, StatusCode> {
-    let mut sims = state.write().await;
-    let sim = sims.get_mut(&sim_id).ok_or(StatusCode::NOT_FOUND)?;
+    let mut storage = state.write().await;
+    let sim = storage.get_mut(&sim_id).await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::NOT_FOUND)?;
 
     let joint_def = physics::JointDefinition {
         id: req.id.clone(),
@@ -309,8 +322,10 @@ async fn step_simulation(
     Path(sim_id): Path<String>,
     Json(req): Json<StepSimulationRequest>,
 ) -> Result<Json<SimulationStateResponse>, StatusCode> {
-    let mut sims = state.write().await;
-    let sim = sims.get_mut(&sim_id).ok_or(StatusCode::NOT_FOUND)?;
+    let mut storage = state.write().await;
+    let sim = storage.get_mut(&sim_id).await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::NOT_FOUND)?;
 
     sim.step(req.steps, req.dt);
 
@@ -321,8 +336,10 @@ async fn get_simulation_state(
     State(state): State<AppState>,
     Path(sim_id): Path<String>,
 ) -> Result<Json<SimulationStateResponse>, StatusCode> {
-    let sims = state.read().await;
-    let sim = sims.get(&sim_id).ok_or(StatusCode::NOT_FOUND)?;
+    let mut storage = state.write().await;
+    let sim = storage.get_mut(&sim_id).await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::NOT_FOUND)?;
 
     Ok(Json(simulation_state_to_response(sim_id, sim)))
 }
@@ -332,8 +349,10 @@ async fn record_trajectory(
     Path((sim_id, body_id)): Path<(String, String)>,
     Json(req): Json<RecordTrajectoryRequest>,
 ) -> Result<Json<TrajectoryResponse>, StatusCode> {
-    let mut sims = state.write().await;
-    let sim = sims.get_mut(&sim_id).ok_or(StatusCode::NOT_FOUND)?;
+    let mut storage = state.write().await;
+    let sim = storage.get_mut(&sim_id).await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::NOT_FOUND)?;
 
     let mut frames = Vec::new();
     let mut all_contact_events = Vec::new();
@@ -373,9 +392,9 @@ async fn destroy_simulation(
     State(state): State<AppState>,
     Path(sim_id): Path<String>,
 ) -> Result<StatusCode, StatusCode> {
-    let mut sims = state.write().await;
+    let mut storage = state.write().await;
 
-    if sims.remove(&sim_id).is_some() {
+    if storage.remove(&sim_id).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)? {
         info!("Destroyed simulation {}", sim_id);
         Ok(StatusCode::NO_CONTENT)
     } else {

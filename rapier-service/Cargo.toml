@@ -27,6 +27,10 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 # Math
 nalgebra = "0.32"
 
+# Storage backends
+redis = { version = "0.24", features = ["tokio-comp", "connection-manager"] }
+async-trait = "0.1"
+
 [profile.release]
 opt-level = 3
 lto = true

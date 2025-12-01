@@ -2007,7 +2007,7 @@ uvx chuk-mcp-physics
 
 If you need your own private Rapier service instance:
 
-#### 1. Deploy Rapier Service to Fly.io
+#### 1. Deploy Rapier Service to Fly.io with Redis
 
 ```bash
 cd rapier-service
@@ -2015,16 +2015,38 @@ cd rapier-service
 # Login to Fly.io
 fly auth login
 
-# Create and deploy
+# Create Redis instance for distributed storage
+fly redis create
+# Choose: your-rapier-redis, region sjc (or your preferred region), plan 256MB
+
+# Set Redis URL secret (use URL from previous step)
+fly secrets set REDIS_URL="redis://default:password@fly-your-rapier-redis.upstash.io"
+
+# Create and deploy the service
 fly apps create your-rapier-physics
 fly deploy
+
+# Verify Redis connection in logs
+fly logs
+# Look for: "📦 Initialized RedisStorage backend"
 
 # Add custom domain (optional)
 fly certs add rapier.yourdomain.com -a your-rapier-physics
 
-# Verify
+# Verify service is running
 curl https://your-rapier-physics.fly.dev/health
 ```
+
+**Redis Benefits:**
+- ✅ Horizontal scaling (multiple service instances share state)
+- ✅ Automatic cleanup (TTL-based simulation expiration)
+- ✅ Distributed coordination across instances
+- ✅ Session persistence within TTL window
+
+**Configuration:**
+The service uses Redis automatically on Fly.io (see `rapier-service/fly.toml`). For local development, it defaults to in-memory storage.
+
+See **[rapier-service/FLY_REDIS_SETUP.md](rapier-service/FLY_REDIS_SETUP.md)** for detailed Redis setup guide, monitoring, and troubleshooting.
 
 #### 2. Configure chuk-mcp-physics to Use Your Service
 
