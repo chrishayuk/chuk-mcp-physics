@@ -1,9 +1,9 @@
 # Physics MCP Server
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![Test Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg)](https://github.com/yourusername/chuk-mcp-physics)
-[![Tests](https://img.shields.io/badge/tests-515%20passing-brightgreen.svg)](https://github.com/yourusername/chuk-mcp-physics)
+[![Test Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen.svg)](#)
+[![Tests](https://img.shields.io/badge/tests-515%20passing-brightgreen.svg)](#)
 
 **Features:** 🌀 Magnus Force • 💨 Wind Effects • 🏔️ Altitude • 🌡️ Temperature • 🔄 Tumbling Drag • 🎮 Rigid-Body Sims • 📊 515 Tests
 
@@ -664,8 +664,7 @@ python -m chuk_mcp_physics.server
 #### Option 2: Install from Source
 
 ```bash
-# Clone repository
-git clone https://github.com/yourusername/chuk-mcp-physics
+# Clone repository (from your source location)
 cd chuk-mcp-physics
 
 # Install in development mode
@@ -2315,8 +2314,7 @@ For larger simulations, run your own Rapier service (see [RAPIER_SERVICE.md](RAP
 ## 🔧 Development
 
 ```bash
-# Clone repository
-git clone https://github.com/yourusername/chuk-mcp-physics
+# Navigate to project directory
 cd chuk-mcp-physics
 
 # Install in development mode
@@ -2520,14 +2518,15 @@ Contributions welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## 📄 License
 
-MIT License - see [LICENSE](LICENSE) for details.
+Apache License 2.0 - see [LICENSE](LICENSE) for details.
+
+> This is a demonstration project provided as-is for learning and testing purposes.
 
 ---
 
 ## 🙏 Acknowledgments
 
 - [Rapier](https://rapier.rs/) - Fast 2D/3D physics engine in Rust
-- [chuk-mcp-server](https://github.com/chrishayuk/chuk-mcp-server) - MCP server framework
 - [Model Context Protocol](https://modelcontextprotocol.io/) - Protocol specification
 
 ---

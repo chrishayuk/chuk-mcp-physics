@@ -74,7 +74,9 @@ async def demo_viscosity_comparison():
         },
     ]
 
-    print(f"{'Fluid':<25} {'Density':<12} {'Viscosity':<15} {'Drag':<10} {'Re':<12} {'Flow Regime':<20}")
+    print(
+        f"{'Fluid':<25} {'Density':<12} {'Viscosity':<15} {'Drag':<10} {'Re':<12} {'Flow Regime':<20}"
+    )
     print("-" * 105)
 
     for fluid in fluids:
@@ -124,7 +126,7 @@ async def demo_motor_oil_accuracy():
         viscosity=0.1,  # Motor oil actual viscosity
     )
 
-    print(f"   Viscosity used: 0.1 Pa·s (actual motor oil)")
+    print("   Viscosity used: 0.1 Pa·s (actual motor oil)")
     print(f"   Reynolds number: {result_correct['reynolds_number']:.0f}")
     print(f"   Flow regime: {classify_flow(result_correct['reynolds_number'])}")
     print(f"   Drag force: {result_correct['magnitude']:.2f} N")
@@ -139,7 +141,7 @@ async def demo_motor_oil_accuracy():
         # No viscosity - will estimate as water-like (1e-3) because density > 100
     )
 
-    print(f"   Viscosity used: 1.0e-3 Pa·s (estimated as water-like - WRONG!)")
+    print("   Viscosity used: 1.0e-3 Pa·s (estimated as water-like - WRONG!)")
     print(f"   Reynolds number: {result_wrong['reynolds_number']:.0f}")
     print(f"   Flow regime: {classify_flow(result_wrong['reynolds_number'])} (INCORRECT!)")
     print(f"   Drag force: {result_wrong['magnitude']:.2f} N (same, drag is still correct)")
@@ -147,7 +149,7 @@ async def demo_motor_oil_accuracy():
     # Show the error
     error_factor = result_wrong["reynolds_number"] / result_correct["reynolds_number"]
     print(f"\n⚠️  Error: Reynolds number is {error_factor:.0f}x too high!")
-    print(f"   This leads to completely wrong flow regime classification.")
+    print("   This leads to completely wrong flow regime classification.")
     print(f"   Actual: {classify_flow(result_correct['reynolds_number'])}")
     print(f"   Estimated: {classify_flow(result_wrong['reynolds_number'])}")
 
@@ -273,7 +275,7 @@ async def demo_backwards_compatibility():
         drag_coefficient=0.47,
         # No viscosity - will estimate as air-like (1.8e-5)
     )
-    print(f"  ✅ Estimates viscosity: 1.8e-5 Pa·s (air-like)")
+    print("  ✅ Estimates viscosity: 1.8e-5 Pa·s (air-like)")
     print(f"  Reynolds number: {result_air['reynolds_number']:.0f}")
 
     # Water-like density (> 100 kg/m³)
@@ -285,7 +287,7 @@ async def demo_backwards_compatibility():
         drag_coefficient=0.47,
         # No viscosity - will estimate as water-like (1e-3)
     )
-    print(f"  ✅ Estimates viscosity: 1.0e-3 Pa·s (water-like)")
+    print("  ✅ Estimates viscosity: 1.0e-3 Pa·s (water-like)")
     print(f"  Reynolds number: {result_water['reynolds_number']:.0f}")
 
     print("\n💡 Backwards Compatibility: Existing code works unchanged!")

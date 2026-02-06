@@ -2,10 +2,8 @@
 name = "chuk-mcp-physics"
 version = "0.5.1"
 description = "MCP server for physics simulations and calculations using Rapier physics engine"
-authors = [
-    {name = "Chris Hay", email = "chris@example.com"}
-]
 readme = "README.md"
+license = { text = "Apache-2.0" }
 requires-python = ">=3.11"
 dependencies = [
     "chuk-mcp-server>=0.12",
